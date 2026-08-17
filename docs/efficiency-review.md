@@ -1,5 +1,11 @@
 # Compute / time / memory efficiency review
 
+> Written when the engine was still one file, `src/iidsim/engine/simulate.py`. It was
+> later split into `engine/{state,resolve,priority,randomness,events,run}.py` (see
+> [restructure-notes.md](restructure-notes.md)) — the specific line references below
+> predate that split, but the findings and fixes described are unaffected by it (the
+> split was a pure scope/location change, not a logic change).
+
 Reviewed `src/iidsim/engine/simulate.py` (the hot path — everything runs through this once
 per event) plus the domain and reporting layers. Findings are split into what was fixed
 and verified against `tests/test_engine_smoke.py` (byte-identical Excel output to the

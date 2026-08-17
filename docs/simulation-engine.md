@@ -1,10 +1,13 @@
 # Simulation engine — `final_sim_sj_4aug.py`
 
-> **Relocated.** This engine now lives at `src/iidsim/engine/simulate.py` as the callable
-> `run_simulation()` function (run via `iidsim run --dataset ... --corridor ...` or
-> `notebooks/run_simulation.ipynb`), not a standalone script. See
-> [restructure-notes.md](restructure-notes.md) for what changed and why the engine is one
-> large function rather than split into smaller modules. The mechanics described below are
+> **Relocated.** This engine now lives at `src/iidsim/engine/` as a `Simulation` class
+> split across `state.py`/`resolve.py`/`priority.py`/`randomness.py`/`events.py`/`run.py`
+> (`run_simulation()` in `run.py` is the callable entry point — run via
+> `iidsim run --dataset ... --corridor ...` or `notebooks/run_simulation.ipynb`), not a
+> standalone script. See [restructure-notes.md](restructure-notes.md) for what changed,
+> how the split was done safely, and what's still recommended as follow-up (mainly:
+> `resource_update_event` itself, ~700 lines, is still one method — a further,
+> higher-risk decomposition than the file split was). The mechanics described below are
 > otherwise unchanged — same event loop, same conflict-resolution logic.
 
 This ~2,900-line script (mirrored in `final_sim_sj_4aug.ipynb` for interactive runs) is

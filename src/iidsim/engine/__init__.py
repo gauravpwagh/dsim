@@ -1,4 +1,4 @@
-"""The discrete-event simulation engine. See simulate.run_simulation()."""
-from .simulate import run_simulation
+"""The discrete-event simulation engine. See run.run_simulation() / run.Simulation."""
+from .run import Simulation, run_simulation
 
-__all__ = ["run_simulation"]
+__all__ = ["run_simulation", "Simulation"]

@@ -45,7 +45,8 @@ excel_input_files_goods_sched_generation/*.xlsx
 src/iidsim/schedules/raw/*.json          (per-corridor train lists)
         │  loaded via iidsim.schedules.load_trains(name)
         ▼
-src/iidsim/engine/simulate.py            (THE SIMULATION ENGINE: run_simulation())
+src/iidsim/engine/{state,resolve,priority,randomness,events,run}.py
+        │  THE SIMULATION ENGINE: Simulation class + run_simulation() (in run.py) --
         │  discrete-event loop over arrivals/departures, using iidsim.domain /
         │  iidsim.network as the physical model
         ▼
@@ -77,7 +78,7 @@ result = run_simulation(
 `network_section` picks which corridor's station order/distances the output chart uses
 (`'psa_ktv'`, `'sprd_vzm'`, or `'krdl_ktv'`); `corridor_dataset` picks which train schedule
 to load (`iidsim.schedules.available_corridors()` lists what's available). See
-`run_simulation`'s docstring in `src/iidsim/engine/simulate.py` for the full set of
+`run_simulation`'s docstring in `src/iidsim/engine/run.py` for the full set of
 options (halt-deviation/speed-randomness toggles, seeds, autoblock stations, etc.).
 
 For interactive use, `notebooks/run_simulation.ipynb` does the same thing in a notebook.

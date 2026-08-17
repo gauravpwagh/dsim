@@ -24,7 +24,7 @@ deliberately **not** done and why.
 | `input_train_data_updated_after_goods_gen/p_g_*.py` (train-object-literal source) | `src/iidsim/schedules/raw/*.json` + `src/iidsim/schedules/loader.py` (`load_trains(name)`) |
 | `chart_logic3.py` | `src/iidsim/reporting/chart.py` |
 | `data_extract.py` | `src/iidsim/reporting/extract.py` |
-| `final_sim_sj_4aug.py` + `final_sim_sj_4aug.ipynb` (duplicate copies of the same ~2,900-line engine) | `src/iidsim/engine/simulate.py` (`run_simulation()`, one copy) + `src/iidsim/cli.py` (`iidsim run`) + `notebooks/run_simulation.ipynb` (thin wrapper) |
+| `final_sim_sj_4aug.py` + `final_sim_sj_4aug.ipynb` (duplicate copies of the same ~2,900-line engine) | `src/iidsim/engine/{state,resolve,priority,randomness,events,run}.py` (`Simulation` class + `run_simulation()`, one copy) + `src/iidsim/cli.py` (`iidsim run`) + `notebooks/run_simulation.ipynb` (thin wrapper) |
 | `2_find_goods_train_scheduling_final_7july.ipynb` | `notebooks/goods_scheduling.ipynb` (same logic, imports repointed at the new package) |
 
 `excel_input_files_goods_sched_generation/`, `test_cases/`, `output_files_*/`, and
@@ -81,75 +81,120 @@ script (not introduced by the restructure):
    vs. `p_g_sprd_vzm_2days.xlsx`). The new version derives all three output filenames from
    `corridor_dataset` uniformly, so this is now consistent.
 
-## Why the engine is one large function, not six small modules
+## The engine split: `engine/{state,resolve,priority,randomness,events,run}.py`
 
-The original proposal (and the one approved) called for splitting the engine into
-`engine/{state,events,resolve,priority,randomness,run}.py`. That was **not** done, and the
-reason is worth being explicit about rather than silently skipping it.
+The engine went through two stages, in two separate passes of this restructure.
 
-Nearly every helper function in the old script reads and writes a shared set of
+**Stage 1 (initial restructure)**: the original 2,900-line script was *lifted, not
+decomposed* — every helper function nested inside one `run_simulation()` function,
+verified behavior-preserving via a scope-only transformation (`global` -> `nonlocal`).
+This alone was already a real improvement (importable, parameterized, no longer
+duplicated between a `.py` and a `.ipynb`), but didn't yet split the engine into the
+smaller files the original plan called for — doing that safely required solving a real
+problem first, described next.
+
+**Stage 2 (this pass)**: nearly every helper function reads and writes a shared set of
 "current simulation state" names — `sched`, `sched_act`, `stns_event`, `blsec_t`,
-`tr_next_event`, `next_event_type`, `next_event_tr_id`, `t`, `total_schedule`, and a few
-more — via Python's `global` statement, since they all lived in one module. Splitting
-these into separate files requires either:
+`tr_next_event`, `t`, `total_schedule`, and more. Naively converting these to `state.X`
+attribute access is dangerous: several of these exact names (`t`, `sched_act`,
+`stn_line_occ_name`, ...) are *also* reused as ordinary local parameter names in other,
+unrelated functions in the same file (e.g. `goods_delay_due_to_passenger(sched_act, t,
+t_ind, next_event_tr_id)` takes `t` and `sched_act` as plain parameters). A blind
+find/replace would corrupt those unrelated locals.
 
-- **Passing an explicit state object between modules** (the originally-envisioned
-  approach) — but several of these exact names (`t`, `sched_act`, `stn_line_occ_name`,
-  ...) are *also* reused as ordinary local parameter names in other, unrelated functions
-  in the same file (e.g. `goods_delay_due_to_passenger(sched_act, t, t_ind,
-  next_event_tr_id)` takes `t` and `sched_act` as plain parameters that shadow the
-  "global" ones of the same name). A blind, automated find/replace of these names to
-  `state.X` would silently corrupt those unrelated local parameters too — confirmed by
-  inspection, not hypothetical. Doing this correctly requires an AST-aware tool that
-  tracks per-function variable scope, which is a substantially larger undertaking than a
-  text-based refactor.
-- **A comprehensive regression-test suite** exercising every branch (autoblock sequencing,
-  the goods-train starvation override, sibling block-section redirection, the
-  platform-assignment fallback pass, speed-randomness queue propagation, ...) to catch any
-  behavioral drift from a manual decomposition. `tests/test_engine_smoke.py` is a start
-  (one corridor, output-diffed against a golden file) but doesn't exercise those specific
-  branches — see "Recommended follow-ups" below.
+The fix: don't guess which names are "shared state" vs. "local" by inspection — ask
+Python's own compiler. Every nested function is a closure, and a compiled function
+object's `__code__.co_freevars` tells you *exactly* which outer-scope names that
+specific function reads or writes, computed by CPython's real scoping rules. This is
+ground truth, not a heuristic. `migrations/04_split_engine.py`:
 
-Given that, the engine was instead **lifted, not decomposed**: the entire script body
-(unchanged logic) now lives inside one function, `run_simulation()`, with every helper
-function nested inside it instead of at module level. This is a scope-only transformation
-verified to be behavior-preserving:
+1. Imports the (already-lifted, already-verified) engine and reads every nested
+   function's `co_freevars`.
+2. Parses the source with `ast`, and for each nested function, renames only the
+   `ast.Name` references matching *that function's own* freevars into `self.<name>`
+   (`ast.Attribute` nodes) — never touching an `ast.Attribute` that's already qualified,
+   and never touching a name outside that function's specific freevar set.
+3. Splits `run_simulation`'s own top-level body into `__init__` (config/setup) and
+   `run()` (the event loop + reporting), since they're now separate methods with no
+   shared local scope — anything assigned in one and read in the other needs explicit
+   `self.X` seeding, handled generously (over-inclusion is harmless; under-inclusion is
+   a loud `NameError`, never silent corruption).
+4. Assembles everything as real `ast.ClassDef`/`ast.Module` trees (not string
+   concatenation with manual indentation) across `state.py` (the `SimulationState`
+   `__init__`), `resolve.py`, `priority.py`, `randomness.py`, `events.py` (mixin
+   classes), and `run.py` (`Simulation`, combining all mixins via multiple inheritance,
+   plus `resource_update_event` and `run()`).
 
-- Each nested function's `global X` became `nonlocal X` — same read/write semantics,
-  now targeting `run_simulation`'s local scope instead of the module's.
-- Parameter-name shadowing (the `t`/`sched_act` issue above) is unaffected by this move,
-  because Python's scoping resolves a local parameter the same way whether the enclosing
-  scope is a module or an enclosing function.
-- Three names (`stn_line_occ_name`, `previous_train_type`, `prev_blsec_obj`) were never
-  assigned at the old script's true top level — only inside nested functions via
-  `global`. Python's `nonlocal` requires the name to already exist as a local of some
-  enclosing function, so these three got an explicit `= None` pre-initialization added
-  near the top of `run_simulation` (verified empirically that this is required and
-  sufficient before applying it to the real file).
-- The transformation was applied mechanically by a script
-  (`migrations/03_build_engine.py`, kept for reference) operating on exact, pre-identified
-  line numbers, rather than by hand-retyping ~2,800 lines — this removes
-  transcription-error risk as a category, leaving only the specific surgical edits
-  (documented above) to review.
+**Bugs this process actually caught** (all fixed, all pre-existing quirks of moving code
+between scopes rather than engine-logic bugs):
 
-This still delivers real value: the engine is now importable, callable multiple times with
-different corridors/seeds in one process, parameterized instead of edited-by-hand, and no
-longer duplicated between a `.py` and a `.ipynb`. It does not yet deliver the finer-grained
-module boundaries (`resolve.py`, `priority.py`, etc.) that would make individual pieces of
-the conflict-resolution logic independently unit-testable.
+- Two of `run_simulation`'s own parameters (`headway_distance`, `autoblock_stations`)
+  happened to share a name with something in the shared-state set, so a blind rename of
+  the top-level body would have corrupted a parameter read into a self-attribute read of
+  an unset attribute. Fixed by seeding `self.X = X` from the parameter *before* the
+  (necessarily blind, since this body isn't a single already-scoped function) rename
+  runs on that body.
+- A third parameter, `chart_duration_hrs`, was used only in the `run()` half but never
+  assigned to `self` at all — `__init__` and `run()` have no shared scope, so this would
+  have been a `NameError`. Same fix, generalized: any parameter read anywhere in the
+  `run()` half gets seeded.
+- A tuple-unpacking assignment (`station_order, segments = ...`) wasn't caught by a
+  first-pass "assignment target" scan that only looked for plain `ast.Name` targets —
+  fixed by handling `ast.Tuple`/`ast.List` targets too.
+- **The interesting one**: `blsec_id` has a real free variable `t` (the simulation
+  clock) *and*, separately, two list comprehensions using `t` as their own loop variable
+  (`[(b, t) for b, t in end_times if ...]` — nothing to do with the clock). Python 3
+  comprehensions have their own scope, but a naive rename pass doesn't know that, and
+  turned the comprehension's loop variable into `for _, self.t in end_times` — silently
+  overwriting the simulation clock with a block-section sentinel value on every
+  iteration. Caught because it broke two of the branch-coverage tests (autoblock,
+  platform fallback) with a `ValueError` several events into the run — diagnosed by
+  running the exact same scenario through the old (pre-split) and new engine side by
+  side and diffing their full debug logs to find the first line they diverged on. Fixed
+  by making the rename pass comprehension-scope-aware: for `ListComp`/`SetComp`/
+  `DictComp`/`GeneratorExp` nodes, names bound by any of that comprehension's `for`
+  clauses are excluded from renaming within its subtree.
+- `total_schedule_to_json` has a real free variable `json` — but it comes from a
+  redundant `import json` statement that lived inside the original `run_simulation`'s
+  own body (shadowing the top-level module import of the same name), not genuine shared
+  state. Excluded from the rename targets explicitly; every generated file already does
+  its own top-level `import json`.
+
+**Verification**: `tests/` (the golden-output smoke test plus the three targeted branch
+tests — autoblock headway sequencing, goods-starvation override, platform-assignment
+fallback) all pass against the split engine. Beyond that, the exact same synthetic
+platform-fallback scenario (the one that first caught the comprehension-scope bug) was
+run through both the pre-split and post-split engine with full debug output captured,
+and diffed: after normalizing memory addresses printed in object reprs, the two logs are
+identical for all ~1,450 lines except the (intentionally different) output filenames.
+
+**resource_update_event stays one method.** At ~700 lines it's by far the largest single
+piece, handling arrival/departure dispatch, headway/capacity checks, priority
+resolution, and queue management together. It wasn't split further in this pass — unlike
+the mechanical scope-rename above, breaking up its internal control flow is a genuine
+logic-level decomposition, and the branch-coverage tests this pass added (autoblock,
+starvation, platform fallback) are still a small fraction of its actual branches (sibling
+redirect remains untested — see below; single-vs-double-line capacity check
+permutations, speed-randomness queue propagation, and more aren't covered either). Worth
+revisiting once coverage is broader.
 
 ## Recommended follow-ups (not done here)
 
-1. **Extend the regression-test suite** before attempting any further decomposition of
-   `run_simulation`. `tests/test_engine_smoke.py` only covers one corridor's overall
-   output; add one golden-output test per corridor, plus targeted tests that force each of
-   the tricky branches (autoblock headway sequencing, goods-starvation override, sibling
-   redirect, platform fallback) using small synthetic train sets designed to hit them.
-2. **Then** decompose `run_simulation` into smaller modules, ideally with an AST-aware
-   refactoring tool (or very carefully, function-by-function, running the regression suite
-   after each extraction) — `state.py` (a proper class instead of a bag of nonlocals),
-   `resolve.py` (block-section/platform assignment), `priority.py` (passenger/goods
-   ordering), `randomness.py` (already fairly self-contained), `run.py` (the loop).
+1. **Extend the regression-test suite further** before attempting to split
+   `resource_update_event` itself. `tests/` now covers 3 of the trickier branches
+   (autoblock sequencing, goods-starvation override, platform fallback) plus one
+   golden-output smoke test, but sibling block-section redirect
+   (`find_free_sibling_blsec` actually returning a different section, not just staying
+   queued) proved difficult to trigger deterministically by hand-crafted train timing —
+   attempted extensively (see git history for what was tried) and left uncovered. The
+   single-vs-double-line capacity-check permutations in `check_next_blse_stn_occupancy`
+   and speed-randomness queue propagation are also untested. Add one golden-output test
+   per corridor too, not just sprd_vzm.
+2. **Then** consider decomposing `resource_update_event` itself (arrival handling /
+   departure dispatch / queue management as separate methods) — the same
+   `co_freevars`-based technique used for the file split would apply, but this time the
+   *shape* of the code changes (not just where names resolve to), which is a materially
+   different and riskier kind of edit.
 3. **Replace `print()`-based debug output with `logging`.** This was considered here but
    deliberately not automated: `print()` calls in this file often pass several
    comma-separated arguments meant to be concatenated (`print('a', x, 'b', y)`), while
@@ -162,7 +207,8 @@ the conflict-resolution logic independently unit-testable.
    still plain data directories at the repo root — could move under `data/` for
    consistency once the regression suite makes rearranging paths lower-risk to verify.
 5. Delete the one-off migration scripts (`migrations/01_convert_reference_data.py`,
-   `migrations/02_convert_schedules.py`, `migrations/03_build_engine.py`) once
-   this restructure is reviewed and merged — they're provenance for *how* the JSON/engine
-   were derived, not something meant to be re-run (their source `.py` files no longer
-   exist at the paths they read from).
+   `migrations/02_convert_schedules.py`, `migrations/03_build_engine.py`,
+   `migrations/04_split_engine.py`) once this restructure is reviewed and merged —
+   they're provenance for *how* the JSON/engine were derived, not something meant to be
+   re-run (`04_split_engine.py` specifically imports `simulate.py`, which no longer
+   exists now that the split it produced has replaced it).
