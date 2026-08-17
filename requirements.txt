@@ -1,0 +1,10 @@
+pandas
+numpy
+openpyxl
+xlsxwriter
+matplotlib
+jupyter
+nbconvert
+notebook
+pygame
+matplotlib
