@@ -1,5 +1,8 @@
 # Output layer — charting, extraction, and generated files
 
+> **Relocated.** `chart_logic3.py` -> `src/iidsim/reporting/chart.py`; `data_extract.py`
+> -> `src/iidsim/reporting/extract.py`. See [restructure-notes.md](restructure-notes.md).
+
 ## `chart_logic3.py`
 
 Matplotlib-based generator for the classic railway **time–distance ("string") chart** —

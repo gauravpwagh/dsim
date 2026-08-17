@@ -1,5 +1,10 @@
 # Reference / statistical data files
 
+> **Relocated.** These are now JSON files under `src/iidsim/data/raw/`, loaded through
+> `src/iidsim/data/{geography,timing,halt_deviation}.py`. See
+> [restructure-notes.md](restructure-notes.md) for the path mapping — the `.py` files
+> named below no longer exist; their content and purpose are unchanged.
+
 These files hold auto-generated reference data — geography, distances, and statistical
 fits of real train-movement behavior — that the simulation engine treats as read-only
 input. Their header comments identify them as generated from `WAT_Infra_Data.xlsx` and

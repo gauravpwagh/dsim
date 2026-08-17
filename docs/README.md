@@ -11,15 +11,20 @@ movement data. The output is a simulated timetable compared against the planned 
 plus a time–distance ("train graph") PDF chart and a JSON file for a train-animation
 front-end.
 
+As of Aug 2026 this lives in a proper `src/iidsim/` package (previously a flat directory
+of top-level scripts) — see [restructure-notes.md](restructure-notes.md) for what moved
+where and why.
+
 This documentation is split into focused files:
 
 | File | Covers |
 |---|---|
-| [domain-model.md](domain-model.md) | The core classes: `train`, station, block section, and how the physical network graph is assembled (`trains.py`, `stations.py`, `blocksections.py`, `network/`, `station_routes.py`) |
-| [simulation-engine.md](simulation-engine.md) | The main simulation script `final_sim_sj_4aug.py` — the event loop, conflict/priority rules, randomness models, and outputs |
-| [data-files.md](data-files.md) | Auto-generated reference data: station longitudes, block-section distances/crossing-times/speeds, halt-deviation statistical fits |
-| [input-generation.md](input-generation.md) | How the per-corridor train lists that the simulator consumes are produced, from Excel timetables through the goods-scheduling notebook |
-| [outputs.md](outputs.md) | The charting and data-extraction helpers, and what lands in `output_files_*` |
+| [domain-model.md](domain-model.md) | The core classes: `train`, station, block section, and how the physical network graph is assembled (`iidsim.domain`, `iidsim.network`) |
+| [simulation-engine.md](simulation-engine.md) | The simulation engine — the event loop, conflict/priority rules, randomness models, and outputs (`iidsim.engine`) |
+| [data-files.md](data-files.md) | Auto-generated reference data: station longitudes, block-section distances/crossing-times/speeds, halt-deviation statistical fits (`iidsim.data`) |
+| [input-generation.md](input-generation.md) | How the per-corridor train lists that the simulator consumes are produced, from Excel timetables through the goods-scheduling notebook (`iidsim.schedules`) |
+| [outputs.md](outputs.md) | The charting and data-extraction helpers, and what lands in `output_files_*` (`iidsim.reporting`) |
+| [restructure-notes.md](restructure-notes.md) | Old-path -> new-path mapping, how the restructure was verified, and what was deliberately deferred |
 
 ## Big picture
 
@@ -27,42 +32,56 @@ This documentation is split into focused files:
 Excel infra/timetable data
         │
         ▼
-network/*_stations_data.py, *_blocksections_data.py   (physical track graph, 3 "boards")
-        │                              merged by network/__init__.py
+src/iidsim/network/boards/*.py           (physical track graph, 3 "boards")
+        │                    merged by src/iidsim/network/__init__.py
         ▼
-stations_longitude.py, wat_block_section_distances.py,
-blocksection_times.py / _actual_times.py / _speeds_data.py,
-halt_deviation_fits.py                                (reference/statistical data)
-        │
+src/iidsim/data/{geography,timing,halt_deviation}.py
+        │  (reference/statistical data, loaded from data/raw/*.json)
 excel_input_files_goods_sched_generation/*.xlsx
-        │  (2_find_goods_train_scheduling_final_7july.ipynb interleaves goods
-        │   trains into free block-section slots around the passenger timetable)
+        │  (notebooks/goods_scheduling.ipynb interleaves goods trains into
+        │   free block-section slots around the passenger timetable)
         ▼
-input_train_data_updated_after_goods_gen/p_g_*.py     (per-corridor `trains` lists)
-        │
+src/iidsim/schedules/raw/*.json          (per-corridor train lists)
+        │  loaded via iidsim.schedules.load_trains(name)
         ▼
-final_sim_sj_4aug.py / .ipynb                          (THE SIMULATION ENGINE)
-        │  discrete-event loop over arrivals/departures, using trains.py / stations.py /
-        │  blocksections.py / station_routes.py as the domain model
+src/iidsim/engine/simulate.py            (THE SIMULATION ENGINE: run_simulation())
+        │  discrete-event loop over arrivals/departures, using iidsim.domain /
+        │  iidsim.network as the physical model
         ▼
-output_files_*/  →  *.xlsx (planned vs simulated vs actual + deviation stats)
-                     *_time_distance_chart.pdf  (via chart_logic3.py + data_extract.py)
-                     *_animator.json            (per-train route, for a front-end)
+output_files_*/  ->  *.xlsx (planned vs simulated vs actual + deviation stats)
+                      *_time_distance_chart.pdf  (via iidsim.reporting)
+                      *_animator.json            (per-train route, for a front-end)
 ```
 
 ## Running a simulation
 
-`final_sim_sj_4aug.py` (and its notebook twin `final_sim_sj_4aug.ipynb`) is a top-level
-script, not a library — it picks its input corridor, output paths, and options via plain
-module-level variables near the top of the file (`network_section`, `chart_filename`,
-`excel_filename`, `animator`, `USE_HALT_DEVIATION`, `USE_SPEED_RANDOMNESS`, etc.) and runs
-end-to-end when executed:
-
 ```bash
-python final_sim_sj_4aug.py
+pip install -e .
+iidsim list-datasets
+iidsim run --dataset p_g_sprd_vzm_2days --corridor sprd_vzm --output-dir output_files
 ```
 
-Dependencies are listed in [requirements.txt](../requirements.txt): pandas, numpy,
-openpyxl/xlsxwriter (Excel I/O), matplotlib (charting), scipy (halt-deviation
-distributions), jupyter/nbconvert/notebook (the `.ipynb` variants), pygame (unused by the
-files reviewed here — likely for a separate animation viewer).
+or programmatically:
+
+```python
+from iidsim.engine import run_simulation
+
+result = run_simulation(
+    corridor_dataset="p_g_sprd_vzm_2days",
+    network_section="sprd_vzm",
+    output_dir="output_files",
+)
+```
+
+`network_section` picks which corridor's station order/distances the output chart uses
+(`'psa_ktv'`, `'sprd_vzm'`, or `'krdl_ktv'`); `corridor_dataset` picks which train schedule
+to load (`iidsim.schedules.available_corridors()` lists what's available). See
+`run_simulation`'s docstring in `src/iidsim/engine/simulate.py` for the full set of
+options (halt-deviation/speed-randomness toggles, seeds, autoblock stations, etc.).
+
+For interactive use, `notebooks/run_simulation.ipynb` does the same thing in a notebook.
+
+Dependencies are listed in [pyproject.toml](../pyproject.toml): pandas, numpy, openpyxl/
+xlsxwriter (Excel I/O), matplotlib (charting), scipy (halt-deviation distributions);
+jupyter/nbconvert/notebook are an optional `notebooks` extra
+(`pip install -e ".[notebooks]"`).

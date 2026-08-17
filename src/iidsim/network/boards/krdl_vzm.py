@@ -1,0 +1,365 @@
+"""krdl_vzm board: stations + block sections. Merged from network/krdl_vzm_stations_data.py
+and network/krdl_vzm_blocksections_data.py during the src/ package restructure."""
+import pandas as pd
+
+from iidsim.domain import create_station_class, block_sec, populate_connections
+from iidsim.data.geography import station_longitudes as _station_longitudes_fn
+
+station_longitudes = _station_longitudes_fn()
+
+
+# Converted from krdl_vzm_stations.py (KRDL-VZM board, 55 stations).
+# Connections left EMPTY; filled by populate_connections() from block-section conns.
+
+station_dict = {
+    'krdl' : {"tracks": {"s1": 1, "s2": 0, "s3": 2, "s4": 0, "s5": 0, "s6": 0, "s7": 0, "s8": 0, "s9": 0, "s10": 0, "s11": 0, "s12": 0, "s13": 0, "s14": 0, "s15": 0}, "connections": {}},
+    'bchl' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 0}, "connections": {}},
+    'bhns' : {"tracks": {"s1": 1, "s2": 0, "s3": 0}, "connections": {}},
+    'kmlr' : {"tracks": {"s1": 1, "s2": 0, "s3": 0}, "connections": {}},
+    'dwz'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2, "s5": 0}, "connections": {}},
+    'giz'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'dbf'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'kwgn' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'kklu' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'kmsd' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'szy'  : {"tracks": {"s1": 1, "s2": 0, "s3": 2, "s4": 3}, "connections": {}},
+    'dmk'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'bdxx' : {"tracks": {"s1": 1, "s2": 2, "s3": 0, "s4": 0, "s5": 3}, "connections": {}},
+    'tpq'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'kmez' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'jdb'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2, "s5": 3, "s6": 4}, "connections": {}},
+    'nkx'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'agz'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'agb'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'kprr' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'cjs'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'kdpa' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'dir'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'jyp'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2, "s5": 3}, "connections": {}},
+    'cts'  : {"tracks": {"s1": 0, "s2": 0, "s3": 1, "s4": 2}, "connections": {}},
+    'mvg'  : {"tracks": {"s1": 0, "s2": 0, "s3": 1}, "connections": {}},
+    'jrt'  : {"tracks": {"s1": 0, "s2": 0, "s3": 1}, "connections": {}},
+    'mvf'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'krpu' : {"tracks": {"s1": 1, "s2": 2, "s3": 3, "s4": 4, "s5": 5, "s6": 0, "s7": 0, "s8": 0}, "connections": {}},
+    'dmrt' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2, "s5": 3}, "connections": {}},
+    'dmnj' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2, "s5": 0, "s6": 0, "s7": 0, "s8": 0, "s9": 0, "s10": 0}, "connections": {}},
+    'bgua' : {"tracks": {"s1": 1, "s2": 2, "s3": 0, "s4": 3}, "connections": {}},
+    'kkgm' : {"tracks": {"s1": 0, "s2": 0, "s3": 0, "s4": 1}, "connections": {}},
+    'lkmr' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'sgrm' : {"tracks": {"s1": 1, "s2": 0, "s3": 2, "s4": 3}, "connections": {}},
+    'tkri' : {"tracks": {"s1": 1, "s2": 2, "s3": 3, "s4": 0, "s5": 0, "s6": 4}, "connections": {}},
+    'rul'  : {"tracks": {"s1": 0, "s2": 0, "s3": 1}, "connections": {}},
+    'llgm' : {"tracks": {"s1": 0, "s2": 0, "s3": 1}, "connections": {}},
+    'blmk' : {"tracks": {"s1": 1, "s2": 0, "s3": 2}, "connections": {}},
+    'skpi' : {"tracks": {"s1": 1, "s2": 0, "s3": 0}, "connections": {}},
+    'ktga' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 0}, "connections": {}},
+    'sprd' : {"tracks": {"s1": 1, "s2": 2, "s3": 0, "s4": 0, "s5": 3}, "connections": {}},
+    'rgda' : {"tracks": {"s1": 0, "s2": 0, "s3": 0, "s4": 0, "s5": 1, "s6": 2, "s7": 3, "s8": 4, "s9": 5}, "connections": {}},
+    'ldx'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'jmpt' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2, "s5": 3, "s6": 4}, "connections": {}},
+    'knrt' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2, "s5": 3, "s6": 4}, "connections": {}},
+    'gmda' : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2, "s5": 3, "s6": 4}, "connections": {}},
+    'pvp'  : {"tracks": {"s1": 1, "s2": 2, "s3": 0, "s4": 3, "s5": 4, "s6": 5}, "connections": {}},
+    'snm'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2, "s5": 0}, "connections": {}},
+    'vbl'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2, "s5": 0}, "connections": {}},
+    'dnv'  : {"tracks": {"s1": 1, "s2": 2, "s3": 0, "s4": 3, "s5": 0}, "connections": {}},
+    'kmx'  : {"tracks": {"s1": 0, "s2": 1, "s3": 2, "s4": 0, "s5": 3, "s6": 4, "s7": 5}, "connections": {}},
+    'gpi'  : {"tracks": {"s1": 1, "s2": 0, "s3": 0, "s4": 2}, "connections": {}},
+    'grbl' : {"tracks": {"s1": 0, "s2": 1, "s3": 2, "s4": 0, "s5": 3}, "connections": {}},
+    'gtlm' : {"tracks": {"s1": 1, "s2": 2, "s3": 0, "s4": 3}, "connections": {}},
+}
+
+# -- Station object instantiation (longitude from stations_longitude.py) --
+krdl = create_station_class('krdl', station_longitudes['krdl'], station_dict['krdl'])
+bchl = create_station_class('bchl', station_longitudes['bchl'], station_dict['bchl'])
+bhns = create_station_class('bhns', station_longitudes['bhns'], station_dict['bhns'])
+kmlr = create_station_class('kmlr', station_longitudes['kmlr'], station_dict['kmlr'])
+dwz  = create_station_class('dwz', station_longitudes['dwz'], station_dict['dwz'])
+giz  = create_station_class('giz', station_longitudes['giz'], station_dict['giz'])
+dbf  = create_station_class('dbf', station_longitudes['dbf'], station_dict['dbf'])
+kwgn = create_station_class('kwgn', station_longitudes['kwgn'], station_dict['kwgn'])
+kklu = create_station_class('kklu', station_longitudes['kklu'], station_dict['kklu'])
+kmsd = create_station_class('kmsd', station_longitudes['kmsd'], station_dict['kmsd'])
+szy  = create_station_class('szy', station_longitudes['szy'], station_dict['szy'])
+dmk  = create_station_class('dmk', station_longitudes['dmk'], station_dict['dmk'])
+bdxx = create_station_class('bdxx', station_longitudes['bdxx'], station_dict['bdxx'])
+tpq  = create_station_class('tpq', station_longitudes['tpq'], station_dict['tpq'])
+kmez = create_station_class('kmez', station_longitudes['kmez'], station_dict['kmez'])
+jdb  = create_station_class('jdb', station_longitudes['jdb'], station_dict['jdb'])
+nkx  = create_station_class('nkx', station_longitudes['nkx'], station_dict['nkx'])
+agz  = create_station_class('agz', station_longitudes['agz'], station_dict['agz'])
+agb  = create_station_class('agb', station_longitudes['agb'], station_dict['agb'])
+kprr = create_station_class('kprr', station_longitudes['kprr'], station_dict['kprr'])
+cjs  = create_station_class('cjs', station_longitudes['cjs'], station_dict['cjs'])
+kdpa = create_station_class('kdpa', station_longitudes['kdpa'], station_dict['kdpa'])
+dir  = create_station_class('dir', station_longitudes['dir'], station_dict['dir'])
+jyp  = create_station_class('jyp', station_longitudes['jyp'], station_dict['jyp'])
+cts  = create_station_class('cts', station_longitudes['cts'], station_dict['cts'])
+mvg  = create_station_class('mvg', station_longitudes['mvg'], station_dict['mvg'])
+jrt  = create_station_class('jrt', station_longitudes['jrt'], station_dict['jrt'])
+mvf  = create_station_class('mvf', station_longitudes['mvf'], station_dict['mvf'])
+krpu = create_station_class('krpu', station_longitudes['krpu'], station_dict['krpu'])
+dmrt = create_station_class('dmrt', station_longitudes['dmrt'], station_dict['dmrt'])
+dmnj = create_station_class('dmnj', station_longitudes['dmnj'], station_dict['dmnj'])
+bgua = create_station_class('bgua', station_longitudes['bgua'], station_dict['bgua'])
+kkgm = create_station_class('kkgm', station_longitudes['kkgm'], station_dict['kkgm'])
+lkmr = create_station_class('lkmr', station_longitudes['lkmr'], station_dict['lkmr'])
+sgrm = create_station_class('sgrm', station_longitudes['sgrm'], station_dict['sgrm'])
+tkri = create_station_class('tkri', station_longitudes['tkri'], station_dict['tkri'])
+rul  = create_station_class('rul', station_longitudes['rul'], station_dict['rul'])
+llgm = create_station_class('llgm', station_longitudes['llgm'], station_dict['llgm'])
+blmk = create_station_class('blmk', station_longitudes['blmk'], station_dict['blmk'])
+skpi = create_station_class('skpi', station_longitudes['skpi'], station_dict['skpi'])
+ktga = create_station_class('ktga', station_longitudes['ktga'], station_dict['ktga'])
+sprd = create_station_class('sprd', station_longitudes['sprd'], station_dict['sprd'])
+rgda = create_station_class('rgda', station_longitudes['rgda'], station_dict['rgda'])
+ldx  = create_station_class('ldx', station_longitudes['ldx'], station_dict['ldx'])
+jmpt = create_station_class('jmpt', station_longitudes['jmpt'], station_dict['jmpt'])
+knrt = create_station_class('knrt', station_longitudes['knrt'], station_dict['knrt'])
+gmda = create_station_class('gmda', station_longitudes['gmda'], station_dict['gmda'])
+pvp  = create_station_class('pvp', station_longitudes['pvp'], station_dict['pvp'])
+snm  = create_station_class('snm', station_longitudes['snm'], station_dict['snm'])
+vbl  = create_station_class('vbl', station_longitudes['vbl'], station_dict['vbl'])
+dnv  = create_station_class('dnv', station_longitudes['dnv'], station_dict['dnv'])
+kmx  = create_station_class('kmx', station_longitudes['kmx'], station_dict['kmx'])
+gpi  = create_station_class('gpi', station_longitudes['gpi'], station_dict['gpi'])
+grbl = create_station_class('grbl', station_longitudes['grbl'], station_dict['grbl'])
+gtlm = create_station_class('gtlm', station_longitudes['gtlm'], station_dict['gtlm'])
+
+stations_list = [
+    krdl, bchl, bhns, kmlr, dwz, giz, dbf, kwgn, kklu, kmsd,
+    szy, dmk, bdxx, tpq, kmez, jdb, nkx, agz, agb, kprr,
+    cjs, kdpa, dir, jyp, cts, mvg, jrt, mvf, krpu, dmrt,
+    dmnj, bgua, kkgm, lkmr, sgrm, tkri, rul, llgm, blmk, skpi,
+    ktga, sprd, rgda, ldx, jmpt, knrt, gmda, pvp, snm, vbl,
+    dnv, kmx, gpi, grbl, gtlm,
+]
+
+
+
+# Converted from krdl_vzm_blocksections.py (old int dir 0/1/2 -> dn1/up1/mid1).
+# Dropped: gtlm_vzm (link to VZM board), krpu_suku (link to KRPU board), vbl_salr (branch stub).
+
+
+krdl_bchl_dn1  = block_sec('dn1', 'krdl', 'bchl', 9.14, {'krdl': ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14', 's15'], 'bchl': ['s1', 's2','s3', 's4']}, stations_list)
+krdl_bchl_up1  = block_sec('up1', 'krdl', 'bchl', 9.14, {'krdl': ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14', 's15'], 'bchl': ['s1', 's2','s3', 's4']}, stations_list)
+
+bchl_bhns_mid1 = block_sec('mid1', 'bchl', 'bhns', 9.55, {'bchl': ['s1', 's2', 's3', 's4'], 'bhns': ['s1', 's2', 's3']}, stations_list)
+
+bhns_kmlr_mid1 = block_sec('mid1', 'bhns', 'kmlr', 12.43, {'bhns': ['s1', 's2', 's3'], 'kmlr': ['s1', 's2', 's3']}, stations_list)
+
+kmlr_dwz_dn1   = block_sec('dn1', 'kmlr', 'dwz', 12.35, {'kmlr': ['s1', 's2', 's3'], 'dwz': ['s3', 's4', 's5']}, stations_list)
+kmlr_dwz_up1   = block_sec('up1', 'kmlr', 'dwz', 12.35, {'kmlr': ['s1', 's2', 's3'], 'dwz': ['s1', 's2', 's4', 's5']}, stations_list)
+
+dwz_giz_dn1    = block_sec('dn1', 'dwz', 'giz', 7.32, {'dwz': ['s3', 's4', 's5'], 'giz': ['s1', 's3', 's4']}, stations_list)
+dwz_giz_up1    = block_sec('up1', 'dwz', 'giz', 7.32, {'dwz': ['s1', 's2', 's4', 's5'], 'giz': ['s1', 's2']}, stations_list)
+
+giz_dbf_dn1    = block_sec('dn1', 'giz', 'dbf', 10.99, {'giz': ['s1', 's3', 's4'], 'dbf': ['s1', 's3', 's4']}, stations_list)
+giz_dbf_up1    = block_sec('up1', 'giz', 'dbf', 10.99, {'giz': ['s1', 's2'], 'dbf': ['s1', 's2']}, stations_list)
+
+dbf_kwgn_dn1   = block_sec('dn1', 'dbf', 'kwgn', 8.99, {'dbf': ['s1', 's3', 's4'], 'kwgn': ['s1', 's3', 's4']}, stations_list)
+dbf_kwgn_up1   = block_sec('up1', 'dbf', 'kwgn', 8.99, {'dbf': ['s1', 's2'], 'kwgn': ['s1', 's2']}, stations_list)
+
+kwgn_kklu_dn1  = block_sec('dn1', 'kwgn', 'kklu', 12.13, {'kwgn': ['s1', 's3', 's4'], 'kklu': ['s3', 's4']}, stations_list)
+kwgn_kklu_up1  = block_sec('up1', 'kwgn', 'kklu', 12.13, {'kwgn': ['s1', 's2'], 'kklu': ['s1', 's2']}, stations_list)
+
+kklu_kmsd_dn1  = block_sec('dn1', 'kklu', 'kmsd', 12.04, {'kklu': ['s3', 's4'], 'kmsd': ['s1', 's3', 's4']}, stations_list)
+kklu_kmsd_up1  = block_sec('up1', 'kklu', 'kmsd', 12.04, {'kklu': ['s1', 's2'], 'kmsd': ['s1', 's2']}, stations_list)
+
+kmsd_szy_dn1   = block_sec('dn1', 'kmsd', 'szy', 9.39, {'kmsd': ['s1', 's3', 's4'], 'szy': ['s3', 's4']}, stations_list)
+kmsd_szy_up1   = block_sec('up1', 'kmsd', 'szy', 9.39, {'kmsd': ['s1', 's2'], 'szy': ['s1', 's2', 's3']}, stations_list)
+
+szy_dmk_dn1    = block_sec('dn1', 'szy', 'dmk', 11.27, {'szy': ['s3', 's4'], 'dmk': ['s3', 's4']}, stations_list)
+szy_dmk_up1    = block_sec('up1', 'szy', 'dmk', 11.27, {'szy': ['s1', 's2', 's3'], 'dmk': ['s1', 's2']}, stations_list)
+
+dmk_bdxx_dn1   = block_sec('dn1', 'dmk', 'bdxx', 11.4, {'dmk': ['s3', 's4'], 'bdxx': ['s1', 's2', 's4', 's5']}, stations_list)
+dmk_bdxx_up1   = block_sec('up1', 'dmk', 'bdxx', 11.4, {'dmk': ['s1', 's2'], 'bdxx': ['s1', 's2', 's3']}, stations_list)
+
+bdxx_tpq_dn1   = block_sec('dn1', 'bdxx', 'tpq', 5.61, {'bdxx': ['s1', 's2', 's4', 's5'], 'tpq': ['s3', 's4']}, stations_list)
+bdxx_tpq_up1   = block_sec('up1', 'bdxx', 'tpq', 5.61, {'bdxx': ['s1', 's2', 's3'], 'tpq': ['s1', 's2', 's4']}, stations_list)
+
+tpq_kmez_dn1   = block_sec('dn1', 'tpq', 'kmez', 8.3, {'tpq': ['s3', 's4'], 'kmez': ['s3', 's4']}, stations_list)
+tpq_kmez_up1   = block_sec('up1', 'tpq', 'kmez', 8.3, {'tpq': ['s1', 's2', 's4'], 'kmez': ['s1', 's2', 's4']}, stations_list)
+
+kmez_jdb_dn1   = block_sec('dn1', 'kmez', 'jdb', 8.91, {'kmez': ['s3', 's4'], 'jdb': ['s1', 's2', 's3', 's4', 's5', 's6']}, stations_list)
+kmez_jdb_up1   = block_sec('up1', 'kmez', 'jdb', 8.91, {'kmez': ['s1', 's2', 's4'], 'jdb': ['s1', 's2', 's3', 's4', 's5', 's6']}, stations_list)
+
+jdb_nkx_dn1    = block_sec('dn1', 'jdb', 'nkx', 6.45, {'jdb': ['s1', 's2', 's3', 's4', 's5', 's6'], 'nkx': ['s3', 's4']}, stations_list)
+jdb_nkx_up1    = block_sec('up1', 'jdb', 'nkx', 6.45, {'jdb': ['s1', 's2', 's3', 's4', 's5', 's6'], 'nkx': ['s1', 's2', 's4']}, stations_list)
+
+nkx_agz_dn1    = block_sec('dn1', 'nkx', 'agz', 7.9, {'nkx': ['s3', 's4'], 'agz': ['s1', 's3', 's4']}, stations_list)
+nkx_agz_up1    = block_sec('up1', 'nkx', 'agz', 7.9, {'nkx': ['s1', 's2', 's4'], 'agz': ['s1', 's2']}, stations_list)
+
+agz_agb_dn1    = block_sec('dn1', 'agz', 'agb', 10.03, {'agz': ['s1', 's3', 's4'], 'agb': ['s1', 's3', 's4']}, stations_list)
+agz_agb_up1    = block_sec('up1', 'agz', 'agb', 10.03, {'agz': ['s1', 's2'], 'agb': ['s1', 's2']}, stations_list)
+
+agb_kprr_dn1   = block_sec('dn1', 'agb', 'kprr', 7.6, {'agb': ['s1', 's3', 's4'], 'kprr': ['s3', 's4']}, stations_list)
+agb_kprr_up1   = block_sec('up1', 'agb', 'kprr', 7.6, {'agb': ['s1', 's2'], 'kprr': ['s1', 's2', 's4']}, stations_list)
+
+kprr_cjs_dn1   = block_sec('dn1', 'kprr', 'cjs', 11.71, {'kprr': ['s3', 's4'], 'cjs': ['s3', 's4']}, stations_list)
+kprr_cjs_up1   = block_sec('up1', 'kprr', 'cjs', 11.71, {'kprr': ['s1', 's2', 's4'], 'cjs': ['s1', 's2', 's4']}, stations_list)
+
+cjs_kdpa_dn1   = block_sec('dn1', 'cjs', 'kdpa', 6.99, {'cjs': ['s3', 's4'], 'kdpa': ['s1', 's3', 's4']}, stations_list)
+cjs_kdpa_up1   = block_sec('up1', 'cjs', 'kdpa', 6.99, {'cjs': ['s1', 's2', 's4'], 'kdpa': ['s1', 's2']}, stations_list)
+
+kdpa_dir_dn1   = block_sec('dn1', 'kdpa', 'dir', 6.64, {'kdpa': ['s1', 's3', 's4'], 'dir': ['s3', 's4']}, stations_list)
+kdpa_dir_up1   = block_sec('up1', 'kdpa', 'dir', 6.64, {'kdpa': ['s1', 's2'], 'dir': ['s1', 's2', 's4']}, stations_list)
+
+dir_jyp_dn1    = block_sec('dn1', 'dir', 'jyp', 7.07, {'dir': ['s3', 's4'], 'jyp': ['s1', 's3', 's4', 's5']}, stations_list)
+dir_jyp_up1    = block_sec('up1', 'dir', 'jyp', 7.07, {'dir': ['s1', 's2', 's4'], 'jyp': ['s1', 's2', 's4', 's5']}, stations_list)
+
+jyp_cts_dn1    = block_sec('dn1', 'jyp', 'cts', 7.09, {'jyp': ['s1', 's3', 's4', 's5'], 'cts': ['s3', 's4']}, stations_list)
+jyp_cts_up1    = block_sec('up1', 'jyp', 'cts', 7.09, {'jyp': ['s1', 's2', 's4', 's5'], 'cts': ['s1', 's2', 's3']}, stations_list)
+
+cts_mvg_dn1    = block_sec('dn1', 'cts', 'mvg', 6.95, {'cts': ['s3', 's4'], 'mvg': ['s1', 's2', 's3']}, stations_list)
+cts_mvg_up1    = block_sec('up1', 'cts', 'mvg', 6.95, {'cts': ['s1', 's2', 's3'], 'mvg': ['s1', 's2', 's3']}, stations_list)
+
+mvg_jrt_mid1   = block_sec('mid1', 'mvg', 'jrt', 11.4, {'mvg': ['s1', 's2', 's3'], 'jrt': ['s1', 's2', 's3']}, stations_list)
+
+jrt_mvf_mid1   = block_sec('mid1', 'jrt', 'mvf', 9.21, {'jrt': ['s1', 's2', 's3'], 'mvf': ['s1', 's2', 's3', 's4']}, stations_list)
+
+mvf_krpu_dn1   = block_sec('dn1', 'mvf', 'krpu', 6.83, {'mvf': ['s1', 's2', 's3', 's4'], 'krpu': ['s1', 's3', 's4', 's5', 's6', 's7', 's8']}, stations_list)
+mvf_krpu_up1   = block_sec('up1', 'mvf', 'krpu', 6.83, {'mvf': ['s1', 's2', 's3', 's4'], 'krpu': ['s1', 's2', 's4', 's5', 's6', 's7', 's8']}, stations_list)
+
+krpu_dmrt_dn1  = block_sec('dn1', 'krpu', 'dmrt', 10.78, {'krpu': ['s1', 's3', 's4', 's5', 's6', 's7', 's8'], 'dmrt': ['s1', 's3', 's2', 's5']}, stations_list)
+krpu_dmrt_up1  = block_sec('up1', 'krpu', 'dmrt', 10.78, {'krpu': ['s1', 's3', 's4', 's5', 's6', 's7', 's8'], 'dmrt': ['s1','s3', 's4', 's5']}, stations_list)
+
+dmrt_dmnj_dn1  = block_sec('dn1', 'dmrt', 'dmnj', 8.12, {'dmrt': ['s1', 's2','s4', 's5'], 'dmnj': ['s1', 's2', 's4', 's5', 's6', 's7', 's8', 's9', 's10']}, stations_list)
+dmrt_dmnj_up1  = block_sec('up1', 'dmrt', 'dmnj', 8.12, {'dmrt': ['s1', 's3', 's4', 's5'], 'dmnj': ['s3', 's4', 's5', 's6', 's7', 's8', 's9', 's10']}, stations_list)
+ 
+dmnj_bgua_dn1  = block_sec('dn1', 'dmnj', 'bgua', 14.55, {'dmnj': ['s1', 's2', 's4', 's5', 's6', 's7', 's8', 's9', 's10'], 'bgua': ['s1', 's2']}, stations_list)
+dmnj_bgua_up1  = block_sec('up1', 'dmnj', 'bgua', 14.55, {'dmnj': ['s3', 's4', 's5', 's6', 's7', 's8', 's9', 's10'], 'bgua': ['s2', 's3', 's4']}, stations_list)
+
+bgua_kkgm_mid1 = block_sec('mid1', 'bgua', 'kkgm', 12.44, {'bgua': ['s1', 's2', 's3', 's4'], 'kkgm': ['s1', 's2', 's3', 's4']}, stations_list)
+
+kkgm_lkmr_mid1 = block_sec('mid1', 'kkgm', 'lkmr', 15.28, {'kkgm': ['s1', 's2', 's3', 's4'], 'lkmr': ['s1', 's2', 's3', 's4']}, stations_list)
+
+lkmr_sgrm_dn1  = block_sec('dn1', 'lkmr', 'sgrm', 12.83, {'lkmr': ['s1', 's2'], 'sgrm': ['s1', 's2']}, stations_list)
+lkmr_sgrm_up1  = block_sec('up1', 'lkmr', 'sgrm', 12.83, {'lkmr': ['s1', 's3', 's4'], 'sgrm': ['s1', 's3', 's4']}, stations_list)
+
+sgrm_tkri_dn1  = block_sec('dn1', 'sgrm', 'tkri', 9.07, {'sgrm': ['s1', 's2'], 'tkri': ['s1', 's2', 's3', 's4','s5', 's6']}, stations_list)
+sgrm_tkri_up1  = block_sec('up1', 'sgrm', 'tkri', 9.07, {'sgrm': ['s1', 's3', 's4'], 'tkri': ['s1', 's2', 's3','s4', 's5', 's6']}, stations_list)
+
+tkri_rul_mid1  = block_sec('mid1', 'tkri', 'rul', 12.43, {'tkri': ['s1', 's2', 's3', 's4', 's5', 's6'], 'rul': ['s1', 's2', 's3']}, stations_list)
+
+rul_llgm_mid1  = block_sec('mid1', 'rul', 'llgm', 16.5, {'rul': ['s1', 's2', 's3'], 'llgm': ['s1', 's2', 's3']}, stations_list)
+
+llgm_blmk_mid1 = block_sec('mid1', 'llgm', 'blmk', 16.93, {'llgm': ['s1', 's2', 's3'], 'blmk': ['s1', 's2', 's3']}, stations_list)
+
+blmk_skpi_mid1 = block_sec('mid1', 'blmk', 'skpi', 10.4, {'blmk': ['s1', 's2', 's3'], 'skpi': ['s1', 's2', 's3']}, stations_list)
+
+skpi_ktga_mid1 = block_sec('mid1', 'skpi', 'ktga', 14.77, {'skpi': ['s1', 's2', 's3'], 'ktga': ['s1', 's2', 's3', 's4']}, stations_list)
+
+ktga_sprd_mid1 = block_sec('mid1', 'ktga', 'sprd', 9.63, {'ktga': ['s1', 's2', 's3', 's4'], 'sprd': ['s1', 's2', 's3', 's4', 's5']}, stations_list)
+
+sprd_rgda_dn1  = block_sec('dn1', 'sprd', 'rgda', 9.23, {'sprd': ['s1', 's2', 's3','s4', 's5'], 'rgda': ['s1', 's2', 's3', 's4', 's5', 's7', 's8', 's9']}, stations_list)
+sprd_rgda_up1  = block_sec('up1', 'sprd', 'rgda', 9.23, {'sprd': ['s1', 's2', 's3','s4', 's5'], 'rgda': ['s1', 's2', 's3', 's4', 's6', 's7', 's8', 's9']}, stations_list)
+sprd_rgda_mid1 = block_sec('mid1', 'sprd', 'rgda', 9.23, {'sprd': ['s1', 's2', 's3', 's4', 's5'], 'rgda': ['s1', 's2', 's3', 's4', 's9']}, stations_list)
+
+rgda_ldx_dn1   = block_sec('dn1', 'rgda', 'ldx', 7.82, {'rgda': ['s1', 's2', 's3', 's4', 's5', 's7', 's8', 's9'], 'ldx': ['s1', 's2']}, stations_list)
+rgda_ldx_up1   = block_sec('up1', 'rgda', 'ldx', 7.82, {'rgda': ['s1', 's2', 's3', 's4', 's6', 's7', 's8', 's9'], 'ldx': ['s1', 's3', 's4']}, stations_list)
+
+ldx_jmpt_dn1   = block_sec('dn1', 'ldx', 'jmpt', 7.18, {'ldx': ['s1', 's2'], 'jmpt': ['s1', 's2', 's4', 's5', 's6']}, stations_list)
+ldx_jmpt_up1   = block_sec('up1', 'ldx', 'jmpt', 7.18, {'ldx': ['s1', 's3', 's4'], 'jmpt': ['s3', 's4', 's5', 's6']}, stations_list) 
+
+jmpt_knrt_dn1  = block_sec('dn1', 'jmpt', 'knrt', 9.14, {'jmpt': ['s1', 's2', 's4'], 'knrt': ['s1', 's2', 's4']}, stations_list)
+jmpt_knrt_up1  = block_sec('up1', 'jmpt', 'knrt', 9.14, {'jmpt': ['s3', 's4'], 'knrt': ['s1', 's3', 's4']}, stations_list)
+jmpt_knrt_mid1 = block_sec('mid1', 'jmpt', 'knrt', 9.14, {'jmpt': [ 's4','s5', 's6'], 'knrt': ['s2','s3', 's4','s5', 's6']}, stations_list)
+
+knrt_gmda_dn1  = block_sec('dn1', 'knrt', 'gmda', 8.87, {'knrt': ['s1', 's2', 's4'], 'gmda': ['s1', 's2']}, stations_list)
+knrt_gmda_up1  = block_sec('up1', 'knrt', 'gmda', 8.87, {'knrt': [ 's1', 's3', 's4'], 'gmda': ['s1','s2', 's3', 's4']}, stations_list)
+knrt_gmda_mid1 = block_sec('mid1', 'knrt', 'gmda', 8.87, {'knrt': ['s2','s3', 's4','s5', 's6'], 'gmda': ['s1','s2','s5', 's6']}, stations_list)
+# knrt_gmda_mid1 = block_sec('mid1', 'knrt', 'gmda', 8.87, {'knrt': ['s2','s3', 's4','s5', 's6'], 'gmda': ['s1', 's2','s3','s4','s5', 's6']}, stations_list)
+
+gmda_pvp_dn1   = block_sec('dn1', 'gmda', 'pvp', 13.59, {'gmda': ['s1', 's2'], 'pvp': ['s1', 's2', 's4', 's5', 's6']}, stations_list)
+gmda_pvp_up1   = block_sec('up1', 'gmda', 'pvp', 13.59, {'gmda': ['s1', 's2','s3', 's4'], 'pvp': ['s1', 's3', 's4', 's5', 's6']}, stations_list)
+gmda_pvp_mid1  = block_sec('mid1', 'gmda', 'pvp', 13.59, {'gmda': ['s1', 's2','s3','s4','s5', 's6'], 'pvp': ['s5', 's6']}, stations_list)
+
+pvp_snm_dn1    = block_sec('dn1', 'pvp', 'snm', 12.8, {'pvp': ['s1', 's2', 's4', 's5', 's6'], 'snm': ['s1', 's2', 's4', 's5']}, stations_list)
+pvp_snm_up1    = block_sec('up1', 'pvp', 'snm', 12.8, {'pvp': ['s1', 's3', 's4', 's5', 's6'], 'snm': ['s3', 's4', 's5']}, stations_list)
+
+snm_vbl_dn1    = block_sec('dn1', 'snm', 'vbl', 11.28, {'snm': ['s1', 's2', 's4', 's5'], 'vbl': ['s1', 's2', 's4', 's5']}, stations_list)
+snm_vbl_up1    = block_sec('up1', 'snm', 'vbl', 11.28, {'snm': ['s3', 's4', 's5'], 'vbl': ['s1', 's3', 's4', 's5']}, stations_list)
+ 
+vbl_dnv_dn1    = block_sec('dn1', 'vbl', 'dnv', 11.96, {'vbl': ['s1', 's2', 's4', 's5'], 'dnv': ['s1', 's2']}, stations_list)
+vbl_dnv_up1    = block_sec('up1', 'vbl', 'dnv', 11.96, {'vbl': ['s1', 's3', 's4', 's5'], 'dnv': ['s1', 's3', 's4', 's5']}, stations_list)
+vbl_dnv_mid1    = block_sec('mid1', 'vbl', 'dnv', 11.96, {'vbl': ['s1', 's3', 's4', 's5'], 'dnv': ['s1', 's2', 's3', 's4', 's5']}, stations_list)
+# added extra 's2' at the dnv station
+
+
+dnv_kmx_dn1    = block_sec('dn1', 'dnv', 'kmx', 9.81, {'dnv': ['s1', 's2'], 'kmx': ['s1', 's2', 's3']}, stations_list)
+dnv_kmx_up1    = block_sec('up1', 'dnv', 'kmx', 9.81, {'dnv': ['s1', 's2', 's3', 's4', 's5'], 'kmx': ['s1', 's2', 's4', 's5']}, stations_list)
+
+kmx_gpi_dn1    = block_sec('dn1', 'kmx', 'gpi', 9.56, {'kmx': ['s1', 's2', 's3'], 'gpi': ['s1', 's2', 's4']}, stations_list)
+kmx_gpi_up1    = block_sec('up1', 'kmx', 'gpi', 9.56, {'kmx': ['s1', 's2', 's4', 's5'], 'gpi': ['s3', 's4']}, stations_list)
+
+gpi_grbl_dn1   = block_sec('dn1', 'gpi', 'grbl', 10.52, {'gpi': ['s1', 's2', 's4'], 'grbl': ['s1', 's2', 's3']}, stations_list)
+gpi_grbl_up1   = block_sec('up1', 'gpi', 'grbl', 10.52, {'gpi': ['s3', 's4'], 'grbl': ['s1', 's2', 's4', 's5']}, stations_list)
+
+grbl_gtlm_dn1  = block_sec('dn1', 'grbl', 'gtlm', 5.84, {'grbl': ['s1', 's2', 's3'], 'gtlm': ['s1', 's2', 's4']}, stations_list)
+grbl_gtlm_up1  = block_sec('up1', 'grbl', 'gtlm', 5.84, {'grbl': ['s1', 's2', 's4', 's5'], 'gtlm': ['s3', 's4']}, stations_list)
+
+
+blocksections_list = [
+    krdl_bchl_dn1, krdl_bchl_up1,
+    bchl_bhns_mid1,
+    bhns_kmlr_mid1,
+    kmlr_dwz_dn1, kmlr_dwz_up1,
+    dwz_giz_dn1, dwz_giz_up1,
+    giz_dbf_dn1, giz_dbf_up1,
+    dbf_kwgn_dn1, dbf_kwgn_up1,
+    kwgn_kklu_dn1, kwgn_kklu_up1,
+    kklu_kmsd_dn1, kklu_kmsd_up1,
+    kmsd_szy_dn1, kmsd_szy_up1,
+    szy_dmk_dn1, szy_dmk_up1,
+    dmk_bdxx_dn1, dmk_bdxx_up1,
+    bdxx_tpq_dn1, bdxx_tpq_up1,
+    tpq_kmez_dn1, tpq_kmez_up1,
+    kmez_jdb_dn1, kmez_jdb_up1,
+    jdb_nkx_dn1, jdb_nkx_up1,
+    nkx_agz_dn1, nkx_agz_up1,
+    agz_agb_dn1, agz_agb_up1,
+    agb_kprr_dn1, agb_kprr_up1,
+    kprr_cjs_dn1, kprr_cjs_up1,
+    cjs_kdpa_dn1, cjs_kdpa_up1,
+    kdpa_dir_dn1, kdpa_dir_up1,
+    dir_jyp_dn1, dir_jyp_up1,
+    jyp_cts_dn1, jyp_cts_up1,
+    cts_mvg_dn1, cts_mvg_up1,
+    mvg_jrt_mid1,
+    jrt_mvf_mid1,
+    mvf_krpu_dn1, mvf_krpu_up1,
+    krpu_dmrt_dn1, krpu_dmrt_up1,
+    dmrt_dmnj_dn1, dmrt_dmnj_up1,
+    dmnj_bgua_dn1, dmnj_bgua_up1,
+    bgua_kkgm_mid1,
+    kkgm_lkmr_mid1,
+    lkmr_sgrm_dn1, lkmr_sgrm_up1,
+    sgrm_tkri_dn1, sgrm_tkri_up1,
+    tkri_rul_mid1,
+    rul_llgm_mid1,
+    llgm_blmk_mid1,
+    blmk_skpi_mid1,
+    skpi_ktga_mid1,
+    ktga_sprd_mid1,
+    sprd_rgda_dn1, sprd_rgda_up1,
+      sprd_rgda_mid1,
+    rgda_ldx_dn1, rgda_ldx_up1,
+    ldx_jmpt_dn1, ldx_jmpt_up1,
+    jmpt_knrt_dn1, jmpt_knrt_up1, 
+    jmpt_knrt_mid1,
+    knrt_gmda_dn1, knrt_gmda_up1,
+      knrt_gmda_mid1,
+    gmda_pvp_dn1, gmda_pvp_up1,
+      gmda_pvp_mid1,
+    pvp_snm_dn1, pvp_snm_up1,
+    snm_vbl_dn1, snm_vbl_up1,
+    vbl_dnv_dn1, vbl_dnv_up1,
+    dnv_kmx_dn1, dnv_kmx_up1,
+    kmx_gpi_dn1, kmx_gpi_up1,
+    gpi_grbl_dn1, gpi_grbl_up1,
+    grbl_gtlm_dn1, grbl_gtlm_up1,
+]
+
+# populate_connections(blocksections_list, station_dict, stations_list)
+

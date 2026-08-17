@@ -1,8 +1,14 @@
 # Input generation — from Excel timetables to simulator input
 
+> **Relocated.** The generated per-corridor schedules now live as JSON under
+> `src/iidsim/schedules/raw/*.json`, loaded via `iidsim.schedules.load_trains(name)`
+> instead of a hardcoded Python import. The goods-scheduling notebook is now
+> `notebooks/goods_scheduling.ipynb`. See [restructure-notes.md](restructure-notes.md).
+
 The simulator consumes a plain Python list of `train` objects
 (`input_train_data_updated_after_goods_gen/p_g_*.py`). This document covers how those
-files are produced.
+files are produced (the mechanism is unchanged; only the final storage format and file
+paths changed — see the note above).
 
 ## `excel_input_files_goods_sched_generation/` — source spreadsheets
 

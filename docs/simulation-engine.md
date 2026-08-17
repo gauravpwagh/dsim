@@ -1,5 +1,12 @@
 # Simulation engine — `final_sim_sj_4aug.py`
 
+> **Relocated.** This engine now lives at `src/iidsim/engine/simulate.py` as the callable
+> `run_simulation()` function (run via `iidsim run --dataset ... --corridor ...` or
+> `notebooks/run_simulation.ipynb`), not a standalone script. See
+> [restructure-notes.md](restructure-notes.md) for what changed and why the engine is one
+> large function rather than split into smaller modules. The mechanics described below are
+> otherwise unchanged — same event loop, same conflict-resolution logic.
+
 This ~2,900-line script (mirrored in `final_sim_sj_4aug.ipynb` for interactive runs) is
 the heart of the project: a discrete-event simulation that replays a planned timetable
 through the physical network model, resolves real-world conflicts, and writes out the

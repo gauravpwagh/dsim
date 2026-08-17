@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iidsim"
+version = "0.1.0"
+description = "Discrete-event railway traffic simulator for the WAT (Waltair) division network"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas",
+    "numpy",
+    "openpyxl",
+    "xlsxwriter",
+    "matplotlib",
+    "scipy",
+]
+
+[project.optional-dependencies]
+notebooks = ["jupyter", "nbconvert", "notebook"]
+dev = ["pytest"]
+
+[project.scripts]
+iidsim = "iidsim.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+iidsim = ["data/raw/*.json", "schedules/raw/*.json"]

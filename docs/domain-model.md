@@ -1,5 +1,11 @@
 # Domain model
 
+> **File paths below reflect the pre-restructure layout.** As of the Aug 2026 package
+> restructure, this content now lives under `src/iidsim/` — see
+> [restructure-notes.md](restructure-notes.md) for the full old-path -> new-path mapping.
+> The descriptions of *what* each piece does and *why* are still accurate; only *where*
+> changed.
+
 The physical network and rolling stock are modeled as plain Python classes, kept
 deliberately simple (lists/dicts as ad-hoc structs) so the simulation engine can mutate
 them cheaply during the event loop.
