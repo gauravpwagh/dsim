@@ -1,5 +1,4 @@
-import copy 
-import pandas as pd 
+import pandas as pd
 
 class train():
     def __init__(self,id, tr_type, tr_schedule, origin, destination, max_speed, instance_index, tr_real_schedule=None):
@@ -10,7 +9,10 @@ class train():
         self.tr_origin = origin #origin station
         self.tr_destination = destination #destination station
         # self.tr_sched_act holds the simulated timetable, updated during the simulation run (name is historical, not real-world "actual" data)
-        self.tr_sched_act = copy.deepcopy(self.tr_schedule)
+        # a structural copy (not copy.deepcopy) is enough and considerably cheaper: the
+        # leaf values are pandas Timestamps, which are immutable, so there's nothing
+        # under them that a shallow-per-level rebuild would fail to isolate.
+        self.tr_sched_act = {station: list(times) for station, times in self.tr_schedule.items()}
         self.tr_real_schedule = tr_real_schedule if tr_real_schedule is not None else {} # real-world recorded arrival/departure times, sourced from movement data
         self.max_speed = max_speed
         self.instance_index = instance_index

@@ -1,5 +1,4 @@
 import pandas as pd
-import copy
 
 # VR: convention here is that block section name is always station-to-the-west_station-to-east _ direction-mvmnt+instancenum
 # VR: for example, 'STNWEST_STNEAST_DN1' OR 'STNWEST_STNEAST_UP1' OR 'STNWEST_STNEAST_MID1'

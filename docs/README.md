@@ -25,6 +25,7 @@ This documentation is split into focused files:
 | [input-generation.md](input-generation.md) | How the per-corridor train lists that the simulator consumes are produced, from Excel timetables through the goods-scheduling notebook (`iidsim.schedules`) |
 | [outputs.md](outputs.md) | The charting and data-extraction helpers, and what lands in `output_files_*` (`iidsim.reporting`) |
 | [restructure-notes.md](restructure-notes.md) | Old-path -> new-path mapping, how the restructure was verified, and what was deliberately deferred |
+| [efficiency-review.md](efficiency-review.md) | Compute/time/memory findings — what was fixed and verified, and what's recommended but deferred |
 
 ## Big picture
 

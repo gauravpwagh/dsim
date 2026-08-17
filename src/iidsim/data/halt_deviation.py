@@ -25,6 +25,7 @@ def _load() -> dict:
         return json.load(f)
 
 
+@lru_cache(maxsize=2)  # only ever called with 'g' or 'p' -- read-only, never mutated by callers
 def fits_for(train_type: str) -> dict:
     """train_type: 'g' or 'p' (case-insensitive) -> {STATION: fit_dict}"""
     return _retuple_params(_load()[train_type.lower()])

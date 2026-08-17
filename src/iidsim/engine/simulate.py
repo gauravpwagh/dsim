@@ -21,7 +21,6 @@ original script's output for the same corridor/seed. Only the *configuration*
 section immediately below was rewritten -- hardcoded corridor selection and
 file paths became function parameters.
 """
-import copy
 import json
 import time
 
@@ -75,17 +74,40 @@ def run_simulation(
 
     trains = schedules.load_trains(corridor_dataset)
 
+    # O(1) lookups replacing repeated linear scans over `trains`/`stations_list` in the
+    # hot event-processing path below (each was previously a fresh `for t in trains: ...`
+    # or `next(tr for tr in trains if ...)` scan per call, several times per event).
+    # trains_by_id is built with setdefault (first-occurrence-wins) to exactly match the
+    # original `next(...)` scans' behavior in the (documented) case where the same
+    # train_id appears more than once across instances (e.g. up/down workings).
+    trains_by_id = {}
+    for _tr in trains:
+        trains_by_id.setdefault(_tr.train_id, _tr)
+    trains_by_instance_id = {f"{_tr.train_id}_{_tr.instance_index}": _tr for _tr in trains}
+    stations_by_name = {s.name: s for s in stations_list}
+
     station_longitudes = geography.station_longitudes()
     blsec_lookup = {b.name: b for b in blocksections_list}
 
     #  halt-deviation model, fitted from real WAT halt-time data (see docs/data-files.md)
-    halt_dev_fits_g = halt_deviation.fits_for('g')
-    halt_dev_fits_p = halt_deviation.fits_for('p')
-    station_max_g = halt_deviation.station_max_for('g')
-    station_max_p = halt_deviation.station_max_for('p')
-    _crossing = timing.crossing_time_distributions()
-    g_times = _crossing['g']
-    p_times = _crossing['p']
+    # -- both loads skipped when their feature is off (add_halt_randomness/
+    # add_speed_randomness below always check the flag before ever touching these, so an
+    # empty dict is never actually read in that case). Avoids deserializing and
+    # reprocessing halt_deviation_fits.json (2+ MB) when USE_HALT_DEVIATION is False.
+    if use_halt_deviation:
+        halt_dev_fits_g = halt_deviation.fits_for('g')
+        halt_dev_fits_p = halt_deviation.fits_for('p')
+        station_max_g = halt_deviation.station_max_for('g')
+        station_max_p = halt_deviation.station_max_for('p')
+    else:
+        halt_dev_fits_g = halt_dev_fits_p = station_max_g = station_max_p = {}
+
+    if use_speed_randomness:
+        _crossing = timing.crossing_time_distributions()
+        g_times = _crossing['g']
+        p_times = _crossing['p']
+    else:
+        g_times = p_times = {}
 
     # if set False; no halt deviation(randomness) is added to the halt time; the halt time is always equal to the scheduled halt time
     USE_HALT_DEVIATION = use_halt_deviation
@@ -509,14 +531,13 @@ def run_simulation(
                 if b.name.startswith(curr_blsec):
                     count_curr_blsec += 1
 
-            # get next station line occupancies  
+            # get next station line occupancies
             for i, vals in stns_event[1].tracks.items():
                 train = vals[5]
                 train_dir = None
-                for t in trains:
-                    if t.train_id == train:          # match FIRST, then compute direction
-                        train_dir = train_direction(t, stns_event[1].name)
-                        break
+                _t = trains_by_id.get(train)
+                if _t is not None:
+                    train_dir = train_direction(_t, stns_event[1].name)
                 next_stn_occ[i] = [vals[0], vals[3], train_dir, vals[5]]
                 print('type of vals[3] is ', type(vals[3]))
                 if isinstance(vals[3], pd.Timestamp):
@@ -558,12 +579,11 @@ def run_simulation(
                         count_next_blsec += 1
                         blsec_tr_dir = None
                         blsec_occ_train_name = b.occ_train.split('_')[0] if b.occ_train else None
-                        for t in trains:
-                            if t.train_id == blsec_occ_train_name:        # match FIRST
-                                blsec_tr_dir = train_direction(t, b.stn_west.name)
-                                print('train name is ', t.train_id, ' and its direction is ', blsec_tr_dir)
-                                print('blsec occ train name is ', blsec_occ_train_name)
-                                break
+                        _t = trains_by_id.get(blsec_occ_train_name)
+                        if _t is not None:
+                            blsec_tr_dir = train_direction(_t, b.stn_west.name)
+                            print('train name is ', _t.train_id, ' and its direction is ', blsec_tr_dir)
+                            print('blsec occ train name is ', blsec_occ_train_name)
                         next_blsec_list.append([b, blsec_tr_dir])
                         next_blsec_list_names.append([b.name, blsec_tr_dir])
             else:
@@ -593,8 +613,11 @@ def run_simulation(
         #sched_act[i.train_id] = i.tr_sched_act
 
 
-    sched_act = copy.deepcopy(sched) # initial actual schedule is same as planned schedule; it will be updated during the simulation
-    given_sched = copy.deepcopy(sched) # to keep a copy of the original schedule; for comparison
+    # sched's values are flat lists of only str/pd.Timestamp (both immutable), so a
+    # per-list rebuild gives fully independent copies without copy.deepcopy's traversal
+    # and memo-tracking overhead.
+    sched_act = {k: list(v) for k, v in sched.items()} # initial actual schedule is same as planned schedule; it will be updated during the simulation
+    given_sched = {k: list(v) for k, v in sched.items()} # to keep a copy of the original schedule; for comparison
     print('\n planned schedule of trains: ', sched)
 
 
@@ -1158,7 +1181,7 @@ def run_simulation(
                 continue 
             print('occ train id is', occ_train_id)
             # find train object and its type
-            occ_train_obj = next((tr for tr in trains if tr.train_id == occ_train_id), None)
+            occ_train_obj = trains_by_id.get(occ_train_id)
             occ_type = getattr(occ_train_obj, 'tr_type', None) if occ_train_obj is not None else None
             if occ_type == 'p':
                 # direction check: this station must not be occ_train_obj's destination
@@ -1226,7 +1249,7 @@ def run_simulation(
             train_on_prev_blsec = prev_blsec_obj.occ_train
             train_on_prev_blsec = train_on_prev_blsec.split('_')[0]
             print('train on previous block section is ', train_on_prev_blsec)
-            prev_train = next((tr for tr in trains if tr.train_id == train_on_prev_blsec), None)
+            prev_train = trains_by_id.get(train_on_prev_blsec)
             print('previous train object is ', prev_train)
             if prev_train:
                 previous_train_type = prev_train.tr_type
@@ -1297,7 +1320,7 @@ def run_simulation(
                 continue
 
             # find train object and its type
-            occ_train_obj = next((tr for tr in trains if tr.train_id == occ_train_id), None)
+            occ_train_obj = trains_by_id.get(occ_train_id)
             occ_type = getattr(occ_train_obj, 'tr_type', None) if occ_train_obj is not None else None
             if occ_type=='g':
                 continue
@@ -2400,9 +2423,10 @@ def run_simulation(
         #     break
         event_list = build_event_list()
         next_event_time = min([i for i in event_list if isinstance(i, str) == False and i < pd.Timestamp("2100-06-01 22:50:00")]) # 100000 #time of next event
-        next_event_type = event_list[event_list.index(next_event_time)+1] #arrival or departure - next event
-        next_event_train = event_list[event_list.index(next_event_time)-1] #name / id of train associated with next event
-        next_event_tr_id = event_list[event_list.index(next_event_time)+2] #train id in the schedule
+        _event_idx = event_list.index(next_event_time)  # found once, reused below (was 4 separate O(len(event_list)) scans for the same index)
+        next_event_type = event_list[_event_idx+1] #arrival or departure - next event
+        next_event_train = event_list[_event_idx-1] #name / id of train associated with next event
+        next_event_tr_id = event_list[_event_idx+2] #train id in the schedule
 
         t = next_event_time # advance simulation clock to time of next event
         print('\n -------------------t = ', t, '-------------------------')
@@ -2410,14 +2434,10 @@ def run_simulation(
 
         print('\n next event type is ', next_event_type)
 
-        next_event_tr_id = event_list[(event_list.index(next_event_time)) + 2] # e.g., '12345_mid1' get that unique train id from event list
-        # Extract instance index from train ID string 
-        instance_index = int((next_event_tr_id.split('_')) [1]) # if it is '12345_mid1' then instance_index = 2
-
-        for i in trains:
-            if i.train_id == next_event_train and i.instance_index == instance_index:
-                tr_next_event = i # train object for which next event is at t
-                break 
+        # next_event_tr_id is already train_id + '_' + instance_index (see how sched/sched_act
+        # keys are built above), so it's a direct key into trains_by_instance_id -- this
+        # replaces a full `for i in trains: ...` scan every single event.
+        tr_next_event = trains_by_instance_id[next_event_tr_id] # train object for which next event is at t
 
 
 
@@ -2549,19 +2569,15 @@ def run_simulation(
     # ---- Merge extra rows into df ----
     df_extra = pd.DataFrame(extra_rows, columns=columns)
 
-    df_final_parts = []
-    for train_id in df['Train_ID'].unique():
-        df_final_parts.append(df[df['Train_ID'] == train_id])
-        df_final_parts.append(df_extra[df_extra['Train_ID'] == train_id])
+    # Interleaving each train's df/df_extra rows here used to cost an O(trains x rows)
+    # filter pass, but has no effect on the final output: the groupby-based re-sort just
+    # below already re-groups every row by Train_ID (a plain concat preserves each
+    # train's own df-then-extra row order within its group either way) and reorders the
+    # groups by earliest Arr1 -- so a single concat is equivalent and skips that pass.
+    df = pd.concat([df, df_extra], ignore_index=True)
 
-    df = pd.concat(df_final_parts, ignore_index=True)
-
-    # now will sort the rows based on Arr1 column taking taking two rows together (planned and actual)
-    df['Arr1_sort'] = pd.to_datetime(df['Arr1'], errors='coerce')
-    df_sorted = df.sort_values(by=['Train_ID', 'Arr1_sort']).drop(columns=['Arr1_sort'])
-
-    df['Arr1_sort'] = pd.to_datetime(df['Arr1'], errors='coerce')
     # Sort by earliest Arr1, keeping planned/actual rows grouped by Train_ID
+    df['Arr1_sort'] = pd.to_datetime(df['Arr1'], errors='coerce')
     df_sorted = pd.concat([df[df['Train_ID'] == tid] for tid in
                           df.groupby('Train_ID')['Arr1_sort'].first().sort_values().index])
     df_sorted = df_sorted.drop(columns=['Arr1_sort']).reset_index(drop=True)
