@@ -18,6 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 notebooks = ["jupyter", "nbconvert", "notebook"]
+webapp = ["flask"]
 dev = ["pytest"]
 
 [project.scripts]
@@ -28,3 +29,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 iidsim = ["data/raw/*.json", "schedules/raw/*.json"]
+"iidsim.webapp" = ["static/*"]

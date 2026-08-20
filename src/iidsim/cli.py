@@ -27,11 +27,26 @@ def main(argv=None):
 
     list_p = sub.add_parser("list-datasets", help="list available train schedules")
 
+    serve_p = sub.add_parser("serve", help="run the local web UI for launching/observing simulations")
+    serve_p.add_argument("--host", default="127.0.0.1")
+    serve_p.add_argument("--port", type=int, default=5000)
+    serve_p.add_argument("--debug", action="store_true")
+
     args = parser.parse_args(argv)
 
     if args.command == "list-datasets":
         for name in available_corridors():
             print(name)
+        return
+
+    if args.command == "serve":
+        try:
+            from iidsim.webapp.server import create_app
+        except ImportError as exc:
+            raise SystemExit(
+                "the web UI needs Flask -- install it with: pip install -e \".[webapp]\""
+            ) from exc
+        create_app().run(host=args.host, port=args.port, debug=args.debug)
         return
 
     result = run_simulation(

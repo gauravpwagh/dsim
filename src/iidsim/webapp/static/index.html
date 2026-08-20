@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iidsim</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <span class="wordmark">iidsim<span class="dot">.</span>ui</span>
+    <span class="tagline">WAT division railway traffic simulator</span>
+    <span class="queue-status" id="queue-status"></span>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div>
+        <p class="panel-title">New run</p>
+        <form id="run-form">
+          <label class="field">
+            <span class="field-label">Dataset</span>
+            <select id="f-dataset" required></select>
+          </label>
+          <label class="field">
+            <span class="field-label">Corridor (chart / station order)</span>
+            <select id="f-corridor" required>
+              <option value="sprd_vzm">sprd_vzm</option>
+              <option value="krdl_ktv">krdl_ktv</option>
+              <option value="psa_ktv">psa_ktv</option>
+            </select>
+          </label>
+
+          <label class="checkrow"><input type="checkbox" id="f-halt-dev" checked> Halt-time randomness</label>
+          <label class="checkrow"><input type="checkbox" id="f-speed-rand" checked> Speed randomness</label>
+
+          <details class="advanced">
+            <summary>Advanced</summary>
+            <div class="adv-body">
+              <label class="field">
+                <span class="field-label">Start time</span>
+                <select id="f-start-mode">
+                  <option value="planned">From planned schedule</option>
+                  <option value="manual">Manual</option>
+                </select>
+              </label>
+              <label class="field" id="f-start-manual-wrap" style="display:none">
+                <span class="field-label">Manual start</span>
+                <input type="datetime-local" id="f-start-manual">
+              </label>
+              <div class="grid2">
+                <label class="field">
+                  <span class="field-label">Start buffer (min)</span>
+                  <input type="number" id="f-buffer" value="10">
+                </label>
+                <label class="field">
+                  <span class="field-label">Chart duration (hrs)</span>
+                  <input type="number" id="f-duration" value="23">
+                </label>
+                <label class="field">
+                  <span class="field-label">Headway distance (km)</span>
+                  <input type="number" step="0.1" id="f-headway" value="3.6">
+                </label>
+                <label class="field">
+                  <span class="field-label">Goods max wait (hrs)</span>
+                  <input type="number" step="0.1" id="f-goods-wait" value="20">
+                </label>
+                <label class="field">
+                  <span class="field-label">Halt-dev seed</span>
+                  <input type="number" id="f-seed-halt" value="1234">
+                </label>
+                <label class="field">
+                  <span class="field-label">Speed-rand seed</span>
+                  <input type="number" id="f-seed-speed" value="1234">
+                </label>
+              </div>
+              <label class="field">
+                <span class="field-label">Autoblock stations (comma-separated)</span>
+                <input type="text" id="f-autoblock" value="alm, kuk, vzm">
+              </label>
+            </div>
+          </details>
+
+          <button type="submit" class="primary" id="run-btn">Run simulation</button>
+        </form>
+      </div>
+
+      <div style="min-height:0; display:flex; flex-direction:column; flex:1;">
+        <p class="panel-title">Runs</p>
+        <div class="runs-list" id="runs-list"></div>
+      </div>
+    </aside>
+
+    <section class="viewer">
+      <div class="tabs" id="tabs" style="display:none">
+        <button class="tab-btn active" data-tab="log">Log</button>
+        <button class="tab-btn" data-tab="visualize">Visualize</button>
+        <button class="tab-btn" data-tab="schedule">Schedule</button>
+        <button class="tab-btn" data-tab="files">Files</button>
+      </div>
+
+      <div class="empty-state" id="empty-state">
+        <h2>No run selected</h2>
+        <p>Configure a dataset and corridor on the left, then hit "Run simulation". Once it finishes you can scrub through an animated time&ndash;distance view, browse each train's stop schedule, and download the report/chart/animator files.</p>
+      </div>
+
+      <div class="tab-panel active" id="log-panel" data-tab="log">
+        <pre id="log-output"></pre>
+      </div>
+
+      <div class="tab-panel" id="visualize-panel" data-tab="visualize">
+        <div class="viz-toolbar">
+          <button class="icon" id="viz-play">&#9654; Play</button>
+          <select id="viz-speed">
+            <option value="60">1 min/s</option>
+            <option value="300">5 min/s</option>
+            <option value="900" selected>15 min/s</option>
+            <option value="3600">1 hr/s</option>
+          </select>
+          <input type="range" id="viz-scrub" min="0" max="1000" value="0">
+          <label class="checkrow"><input type="checkbox" id="viz-show-p" checked><span class="legend-dot" style="background:var(--pass)"></span>Passenger</label>
+          <label class="checkrow"><input type="checkbox" id="viz-show-g" checked><span class="legend-dot" style="background:var(--goods)"></span>Goods</label>
+          <input type="text" id="viz-search" placeholder="highlight train id&hellip;" style="width:150px">
+          <span class="now-readout" id="viz-now"></span>
+        </div>
+        <div id="viz-canvas-wrap">
+          <canvas id="viz-canvas"></canvas>
+          <div id="viz-tooltip"></div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="schedule-panel" data-tab="schedule">
+        <div id="schedule-list-wrap">
+          <input type="text" id="schedule-search" placeholder="filter by train id&hellip;">
+          <div id="schedule-list"></div>
+        </div>
+        <div id="schedule-detail">
+          <p class="empty-state">Select a train on the left.</p>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="files-panel" data-tab="files">
+        <div class="files-grid">
+          <div class="file-card">
+            <h3>Excel report</h3>
+            <p>Planned vs simulated vs actual schedule, plus deviation stats.</p>
+            <button id="dl-excel">Download .xlsx</button>
+          </div>
+          <div class="file-card">
+            <h3>Time&ndash;distance chart</h3>
+            <p>The classic railway string chart, as a PDF.</p>
+            <button id="dl-chart">Download .pdf</button>
+          </div>
+          <div class="file-card">
+            <h3>Animator JSON</h3>
+            <p>Per-train route data &mdash; the same data driving the Visualize tab.</p>
+            <button id="dl-animator">Download .json</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -20,6 +20,7 @@ This documentation is split into focused files:
 | File | Covers |
 |---|---|
 | [architecture.html](architecture.html) | A one-page flowchart of the whole system — open in a browser |
+| [web-ui.md](web-ui.md) | `iidsim serve` — a local web UI for launching runs and observing results (live log, animated time-distance view, per-train schedule) |
 | [domain-model.md](domain-model.md) | The core classes: `train`, station, block section, and how the physical network graph is assembled (`iidsim.domain`, `iidsim.network`) |
 | [simulation-engine.md](simulation-engine.md) | The simulation engine — the event loop, conflict/priority rules, randomness models, and outputs (`iidsim.engine`) |
 | [data-files.md](data-files.md) | Auto-generated reference data: station longitudes, block-section distances/crossing-times/speeds, halt-deviation statistical fits (`iidsim.data`) |
@@ -82,7 +83,9 @@ to load (`iidsim.schedules.available_corridors()` lists what's available). See
 `run_simulation`'s docstring in `src/iidsim/engine/run.py` for the full set of
 options (halt-deviation/speed-randomness toggles, seeds, autoblock stations, etc.).
 
-For interactive use, `notebooks/run_simulation.ipynb` does the same thing in a notebook.
+For interactive use, `notebooks/run_simulation.ipynb` does the same thing in a notebook, or
+`iidsim serve` starts a local web UI for launching and observing runs — see
+[web-ui.md](web-ui.md).
 
 Dependencies are listed in [pyproject.toml](../pyproject.toml): pandas, numpy, openpyxl/
 xlsxwriter (Excel I/O), matplotlib (charting), scipy (halt-deviation distributions);
