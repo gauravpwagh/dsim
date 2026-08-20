@@ -1,22 +1,24 @@
 """Part of the simulation engine -- see docs/restructure-notes.md and docs/simulation-engine.md. Mixed into Simulation (engine/run.py); every method here reads/writes shared per-run state via self.X (see SimulationState in engine/state.py)."""
 
-import json
-import time
+# import json
+# import time
 import numpy as np
 import pandas as pd
-from pandas import Timestamp
+# from pandas import Timestamp
 from scipy import stats as _halt_dev_stats
-from openpyxl.styles import Alignment, Font
-import iidsim.network as _network
-from iidsim import schedules
-from iidsim.data import geography, halt_deviation, timing
-from iidsim.reporting.chart import plot_railway_chart
-from iidsim.reporting.extract import filter_df_by_date_window, get_formatted_data_from_df
+# from openpyxl.styles import Alignment, Font
+# import iidsim.network as _network
+# from iidsim import schedules
+# from iidsim.data import geography, halt_deviation, timing
+# from iidsim.reporting.chart import plot_railway_chart
+# from iidsim.reporting.extract import filter_df_by_date_window, get_formatted_data_from_df
 
 class RandomnessMixin:
 
     def _generate_halt_deviation(self, station, train_type, rng):
-        """station: uppercase station code, train_type: 'G' or 'P'. Returns 0.0 if no fit exists for the station."""
+        """station: uppercase station code, 
+            train_type: 'G' or 'P'. 
+            Returns 0.0 if no fit exists for the station."""
         fit_dict = self.halt_dev_fits_g if train_type == 'G' else self.halt_dev_fits_p
         max_dict = self.station_max_g if train_type == 'G' else self.station_max_p
         fit = fit_dict.get(station)

@@ -1,0 +1,458 @@
+<title>iidsim Architecture</title>
+<style>
+  :root {
+    --bg: #EEF0F2;
+    --surface: #FFFFFF;
+    --surface-2: #F7F8F9;
+    --ink: #1B2430;
+    --muted: #5B6472;
+    --line: #C7CCD3;
+    --line-strong: #9AA3AE;
+    --accent: #C8791E;
+    --accent-ink: #7A4A10;
+    --accent-soft: #F3E3CE;
+    --accent2: #3C7A5A;
+    --accent2-soft: #DCEBE3;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C;
+      --surface: #1B2129;
+      --surface-2: #20272F;
+      --ink: #E7E9EC;
+      --muted: #9AA3AE;
+      --line: #3A414C;
+      --line-strong: #4C5560;
+      --accent: #E3A24A;
+      --accent-ink: #F3D6A8;
+      --accent-soft: #3A2E1A;
+      --accent2: #6FBE93;
+      --accent2-soft: #1D3328;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #12161C;
+    --surface: #1B2129;
+    --surface-2: #20272F;
+    --ink: #E7E9EC;
+    --muted: #9AA3AE;
+    --line: #3A414C;
+    --line-strong: #4C5560;
+    --accent: #E3A24A;
+    --accent-ink: #F3D6A8;
+    --accent-soft: #3A2E1A;
+    --accent2: #6FBE93;
+    --accent2-soft: #1D3328;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 48px 24px 72px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .page {
+    width: 100%;
+    max-width: 1220px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 24px;
+  }
+
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  h1 {
+    font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    font-weight: 700;
+    font-size: clamp(28px, 4vw, 38px);
+    line-height: 1.15;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .intro {
+    max-width: 68ch;
+    font-size: 15.5px;
+    line-height: 1.6;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .intro code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 0.92em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.05em 0.35em;
+    color: var(--ink);
+  }
+
+  figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .diagram-frame {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px;
+    overflow-x: auto;
+  }
+
+  svg.chart {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-width: 900px;
+    color: var(--ink);
+  }
+
+  .box-fill { fill: var(--surface); }
+  .box-line { stroke: var(--line-strong); stroke-width: 1.4; }
+  .lane-fill { fill: var(--surface); }
+  .lane-line { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 3 4; }
+  .engine-fill { fill: var(--accent-soft); fill-opacity: 0.35; }
+  .engine-line { stroke: var(--accent); stroke-width: 1.6; }
+  .inner-fill { fill: var(--surface); }
+  .inner-line { stroke: var(--line-strong); stroke-width: 1.2; }
+  .rue-fill { fill: var(--surface); }
+  .rue-line { stroke: var(--accent); stroke-width: 1.5; }
+  .out-fill { fill: var(--accent2-soft); }
+  .out-line { stroke: var(--accent2); stroke-width: 1.4; }
+
+  .flow-line { stroke: var(--line-strong); stroke-width: 1.6; fill: none; }
+  .verify-line { stroke: var(--accent); stroke-width: 1.6; fill: none; stroke-dasharray: 5 5; }
+
+  .title-mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-weight: 700;
+    font-size: 15px;
+    fill: var(--ink);
+  }
+  .title-mono-sm {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-weight: 700;
+    font-size: 13px;
+    fill: var(--ink);
+  }
+  .subtitle {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 12px;
+    fill: var(--muted);
+  }
+  .subtitle-sm {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 11px;
+    fill: var(--muted);
+  }
+  .lane-title {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-weight: 700;
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    fill: var(--accent);
+  }
+  .lane-body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 11px;
+    fill: var(--muted);
+  }
+  .engine-label {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-weight: 700;
+    font-size: 13.5px;
+    fill: var(--accent-ink);
+  }
+  .row-tag {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.13em;
+    fill: var(--muted);
+  }
+  .edge-label {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 10.5px;
+    fill: var(--muted);
+  }
+  .edge-label-accent {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 10.5px;
+    fill: var(--accent-ink);
+  }
+
+  figcaption {
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 78ch;
+    line-height: 1.55;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    font-size: 12.5px;
+    color: var(--muted);
+    align-items: center;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .legend-swatch { width: 26px; height: 0; border-top: 2px solid var(--line-strong); display: inline-block; }
+  .legend-swatch.verify { border-top: 2px dashed var(--accent); }
+  .legend-swatch.box { width: 16px; height: 16px; border-radius: 4px; background: var(--surface); border: 1.4px solid var(--line-strong); }
+  .legend-swatch.engine { width: 16px; height: 16px; border-radius: 4px; background: var(--accent-soft); border: 1.4px solid var(--accent); }
+  .legend-swatch.out { width: 16px; height: 16px; border-radius: 4px; background: var(--accent2-soft); border: 1.4px solid var(--accent2); }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+    font-size: 12.5px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+</style>
+
+<div class="page">
+  <div class="masthead">
+    <span class="eyebrow">iidsim — system architecture</span>
+    <h1>How a simulation run actually moves through the system</h1>
+    <p class="intro">
+      One discrete-event railway simulator, traced from source Excel data to the three
+      files a run produces. The centre lane is <code>iidsim.engine</code> — the
+      <code>Simulation</code> class, split across six modules during the Aug 2026
+      refactor. Left and right lanes show what keeps that refactor honest and how a run
+      actually gets started.
+    </p>
+  </div>
+
+  <figure>
+    <div class="diagram-frame">
+      <svg class="chart" viewBox="0 0 1650 1060" role="img"
+           aria-label="Flowchart of the iidsim architecture: source Excel and historical movement data feed the network, schedules, and reference-data layers; these plus a CLI or notebook entry point feed the engine, whose Simulation class runs state initialization, an event loop, resource_update_event, and four supporting mixins (resolve, priority, randomness, events); the engine produces an Excel report, a time-distance chart PDF, and an animator JSON; a test suite on the left verifies the engine's behaviour.">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--line-strong)"></path>
+          </marker>
+          <marker id="arrow-accent" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"></path>
+          </marker>
+        </defs>
+
+        <!-- ================= LEFT LANE: TESTS ================= -->
+        <rect class="lane-fill lane-line" x="20" y="330" width="220" height="490" rx="10"></rect>
+        <text class="lane-title" x="42" y="362">tests/</text>
+        <text class="lane-body" x="42" y="384">verifies the engine below</text>
+        <text class="lane-body" x="42" y="400">survives every refactor</text>
+
+        <text class="subtitle-sm" x="42" y="432">Golden-output smoke test —</text>
+        <text class="subtitle-sm" x="42" y="448">byte-identical Excel cells</text>
+        <text class="subtitle-sm" x="42" y="464">vs. a captured baseline run.</text>
+
+        <text class="subtitle-sm" x="42" y="500">Plus 3 branch-coverage</text>
+        <text class="subtitle-sm" x="42" y="516">scenarios, built against the</text>
+        <text class="subtitle-sm" x="42" y="532">real network:</text>
+        <text class="subtitle-sm" x="42" y="556">— autoblock headway</text>
+        <text class="subtitle-sm" x="54" y="572">sequencing</text>
+        <text class="subtitle-sm" x="42" y="596">— goods-train starvation</text>
+        <text class="subtitle-sm" x="54" y="612">override</text>
+        <text class="subtitle-sm" x="42" y="636">— platform-assignment</text>
+        <text class="subtitle-sm" x="54" y="652">fallback</text>
+
+        <text class="subtitle-sm" x="42" y="700">Sibling block-section</text>
+        <text class="subtitle-sm" x="42" y="716">redirect remains an open</text>
+        <text class="subtitle-sm" x="42" y="732">gap — attempted, not yet</text>
+        <text class="subtitle-sm" x="42" y="748">reliably reproducible.</text>
+
+        <path class="verify-line" d="M240,575 L258,575" marker-end="url(#arrow-accent)"></path>
+        <text class="edge-label-accent" x="196" y="565" text-anchor="end">verifies</text>
+
+        <!-- ================= RIGHT LANE: ENTRY POINTS ================= -->
+        <rect class="lane-fill lane-line" x="1410" y="330" width="220" height="490" rx="10"></rect>
+        <text class="lane-title" x="1432" y="362">how a run starts</text>
+
+        <rect class="box-fill box-line" x="1432" y="386" width="176" height="78" rx="8"></rect>
+        <text class="title-mono-sm" x="1520" y="416" text-anchor="middle">iidsim run</text>
+        <text class="subtitle-sm" x="1520" y="434" text-anchor="middle">CLI —</text>
+        <text class="subtitle-sm" x="1520" y="448" text-anchor="middle">--dataset / --corridor</text>
+
+        <rect class="box-fill box-line" x="1432" y="486" width="176" height="78" rx="8"></rect>
+        <text class="title-mono-sm" x="1520" y="512" text-anchor="middle">run_simulation</text>
+        <text class="subtitle-sm" x="1520" y="528" text-anchor="middle">.ipynb notebook</text>
+        <text class="subtitle-sm" x="1520" y="544" text-anchor="middle">(thin wrapper)</text>
+
+        <path class="flow-line" d="M1432,425 L1400,425 L1400,466 L1370,466" marker-end="url(#arrow)"></path>
+        <path class="flow-line" d="M1432,525 L1400,525 L1400,466" ></path>
+        <text class="edge-label" x="1391" y="484" text-anchor="end">run_simulation(...)</text>
+
+        <!-- ================= ROW 1: SOURCES ================= -->
+        <text class="row-tag" x="260" y="14">SOURCE DATA</text>
+        <rect class="box-fill box-line" x="260" y="20" width="540" height="80" rx="8"></rect>
+        <text class="title-mono" x="530" y="48" text-anchor="middle">WAT infra + timetable data</text>
+        <text class="subtitle" x="530" y="68" text-anchor="middle">station/track layouts, block-section distances,</text>
+        <text class="subtitle" x="530" y="84" text-anchor="middle">and P+G Excel schedules</text>
+
+        <rect class="box-fill box-line" x="850" y="20" width="540" height="80" rx="8"></rect>
+        <text class="title-mono" x="1120" y="48" text-anchor="middle">real historical movement records</text>
+        <text class="subtitle" x="1120" y="68" text-anchor="middle">actual arrival/departure logs, used to fit the</text>
+        <text class="subtitle" x="1120" y="84" text-anchor="middle">halt-deviation &amp; speed-randomness models</text>
+
+        <!-- arrows sources -> prepared data -->
+        <path class="flow-line" d="M530,100 L530,125 L435,125 L435,150" marker-end="url(#arrow)"></path>
+        <path class="flow-line" d="M530,125 L825,125 L825,150" marker-end="url(#arrow)"></path>
+        <path class="flow-line" d="M530,125 L1215,125 L1215,150" marker-end="url(#arrow)"></path>
+        <path class="flow-line" d="M1120,100 L1120,138 L1215,138" ></path>
+
+        <!-- ================= ROW 2: PREPARED DATA ================= -->
+        <text class="row-tag" x="260" y="144">PREPARED, VERSIONED DATA</text>
+        <rect class="box-fill box-line" x="260" y="150" width="350" height="130" rx="8"></rect>
+        <text class="title-mono" x="435" y="180" text-anchor="middle">iidsim.network</text>
+        <text class="subtitle" x="435" y="204" text-anchor="middle">3 boards merged into</text>
+        <text class="subtitle" x="435" y="220" text-anchor="middle">one graph — stations,</text>
+        <text class="subtitle" x="435" y="236" text-anchor="middle">block sections,</text>
+        <text class="subtitle" x="435" y="252" text-anchor="middle">connections</text>
+
+        <rect class="box-fill box-line" x="650" y="150" width="350" height="130" rx="8"></rect>
+        <text class="title-mono" x="825" y="180" text-anchor="middle">iidsim.schedules</text>
+        <text class="subtitle" x="825" y="204" text-anchor="middle">goods_scheduling.ipynb slots</text>
+        <text class="subtitle" x="825" y="220" text-anchor="middle">goods trains into free capacity</text>
+        <text class="subtitle" x="825" y="236" text-anchor="middle">around the passenger timetable</text>
+        <text class="subtitle" x="825" y="252" text-anchor="middle">→ per-corridor train lists (JSON)</text>
+
+        <rect class="box-fill box-line" x="1040" y="150" width="350" height="130" rx="8"></rect>
+        <text class="title-mono" x="1215" y="180" text-anchor="middle">iidsim.data</text>
+        <text class="subtitle" x="1215" y="204" text-anchor="middle">geography, block-section</text>
+        <text class="subtitle" x="1215" y="220" text-anchor="middle">timing/speed, and</text>
+        <text class="subtitle" x="1215" y="236" text-anchor="middle">halt-deviation fits</text>
+        <text class="subtitle" x="1215" y="252" text-anchor="middle">(JSON, cached on load)</text>
+
+        <!-- arrows prepared data -> engine -->
+        <path class="flow-line" d="M435,280 L435,375" marker-end="url(#arrow)"></path>
+        <path class="flow-line" d="M825,280 L825,375" marker-end="url(#arrow)"></path>
+        <path class="flow-line" d="M1215,280 L1215,375" marker-end="url(#arrow)"></path>
+
+        <!-- ================= ENGINE CLUSTER ================= -->
+        <rect class="engine-fill engine-line" x="260" y="330" width="1130" height="490" rx="14"></rect>
+        <text class="engine-label" x="284" y="356">iidsim.engine — the Simulation class</text>
+
+        <rect class="inner-fill inner-line" x="300" y="375" width="1050" height="60" rx="7"></rect>
+        <text class="title-mono-sm" x="322" y="401">state.py</text>
+        <text class="subtitle" x="322" y="420">SimulationState.__init__() — loads trains, network graph, and config onto self</text>
+
+        <path class="flow-line" d="M825,435 L825,455" marker-end="url(#arrow)"></path>
+
+        <rect class="inner-fill inner-line" x="300" y="455" width="1050" height="55" rx="7"></rect>
+        <text class="title-mono-sm" x="322" y="479">run.py — run()</text>
+        <text class="subtitle" x="322" y="497">the discrete-event while-loop: find the next event, dispatch it, repeat</text>
+        <path class="flow-line" d="M1330,482 C1360,482 1360,460 1330,458" marker-end="url(#arrow)"></path>
+        <text class="edge-label" x="1338" y="474">next event</text>
+
+        <path class="flow-line" d="M825,510 L825,530" marker-end="url(#arrow)"></path>
+
+        <rect class="rue-fill rue-line" x="300" y="530" width="1050" height="130" rx="7"></rect>
+        <text class="title-mono" x="322" y="558">run.py — resource_update_event()</text>
+        <text class="subtitle" x="322" y="580">the ~700-line core: resolves one arrival or departure, updates the shared</text>
+        <text class="subtitle" x="322" y="596">schedule, and calls into whichever mixin below the decision needs</text>
+        <text class="subtitle-sm" x="322" y="638">kept as one method rather than split further — a logic-level decomposition,</text>
+        <text class="subtitle-sm" x="322" y="654">riskier than the file split, deferred until branch coverage is broader</text>
+
+        <!-- fan out to mixins -->
+        <path class="flow-line" d="M825,660 L825,670 L425,670 L425,680" marker-end="url(#arrow)"></path>
+        <path class="flow-line" d="M825,670 L692,670 L692,680" marker-end="url(#arrow)"></path>
+        <path class="flow-line" d="M825,670 L959,670 L959,680" marker-end="url(#arrow)"></path>
+        <path class="flow-line" d="M825,670 L1226,670 L1226,680" marker-end="url(#arrow)"></path>
+
+        <rect class="inner-fill inner-line" x="300" y="680" width="250" height="95" rx="7"></rect>
+        <text class="title-mono-sm" x="425" y="708" text-anchor="middle">resolve.py</text>
+        <text class="subtitle-sm" x="425" y="728" text-anchor="middle">which block section,</text>
+        <text class="subtitle-sm" x="425" y="744" text-anchor="middle">station line, platform</text>
+
+        <rect class="inner-fill inner-line" x="567" y="680" width="250" height="95" rx="7"></rect>
+        <text class="title-mono-sm" x="692" y="708" text-anchor="middle">priority.py</text>
+        <text class="subtitle-sm" x="692" y="728" text-anchor="middle">passenger-over-goods,</text>
+        <text class="subtitle-sm" x="692" y="744" text-anchor="middle">starvation override</text>
+
+        <rect class="inner-fill inner-line" x="834" y="680" width="250" height="95" rx="7"></rect>
+        <text class="title-mono-sm" x="959" y="708" text-anchor="middle">randomness.py</text>
+        <text class="subtitle-sm" x="959" y="728" text-anchor="middle">halt-deviation &amp;</text>
+        <text class="subtitle-sm" x="959" y="744" text-anchor="middle">speed sampling</text>
+
+        <rect class="inner-fill inner-line" x="1101" y="680" width="250" height="95" rx="7"></rect>
+        <text class="title-mono-sm" x="1226" y="708" text-anchor="middle">events.py</text>
+        <text class="subtitle-sm" x="1226" y="728" text-anchor="middle">next-event selection,</text>
+        <text class="subtitle-sm" x="1226" y="744" text-anchor="middle">schedule bookkeeping</text>
+
+        <!-- engine -> outputs -->
+        <path class="flow-line" d="M825,820 L825,855 L435,855 L435,890" marker-end="url(#arrow)"></path>
+        <path class="flow-line" d="M825,855 L825,890" marker-end="url(#arrow)"></path>
+        <path class="flow-line" d="M825,855 L1215,855 L1215,890" marker-end="url(#arrow)"></path>
+
+        <!-- ================= ROW 4: OUTPUTS ================= -->
+        <text class="row-tag" x="260" y="884">OUTPUTS — ONE RUN PRODUCES ALL THREE</text>
+        <rect class="out-fill out-line" x="260" y="890" width="350" height="110" rx="8"></rect>
+        <text class="title-mono" x="435" y="922" text-anchor="middle">Excel report</text>
+        <text class="subtitle" x="435" y="946" text-anchor="middle">planned vs. simulated vs. actual,</text>
+        <text class="subtitle" x="435" y="962" text-anchor="middle">plus deviation statistics</text>
+
+        <rect class="out-fill out-line" x="650" y="890" width="350" height="110" rx="8"></rect>
+        <text class="title-mono" x="825" y="922" text-anchor="middle">time-distance chart</text>
+        <text class="subtitle" x="825" y="946" text-anchor="middle">PDF — the classic railway</text>
+        <text class="subtitle" x="825" y="962" text-anchor="middle">"train graph"</text>
+
+        <rect class="out-fill out-line" x="1040" y="890" width="350" height="110" rx="8"></rect>
+        <text class="title-mono" x="1215" y="922" text-anchor="middle">animator JSON</text>
+        <text class="subtitle" x="1215" y="946" text-anchor="middle">per-train route, for an</text>
+        <text class="subtitle" x="1215" y="962" text-anchor="middle">external front-end viewer</text>
+      </svg>
+    </div>
+
+    <figcaption>
+      Solid arrows are data or a call moving downstream; the dashed arrow is the
+      regression suite checking the engine's output rather than feeding it data. Every
+      box in the centre lane names an actual file — <code>state.py</code> through
+      <code>run.py</code> — under <code>src/iidsim/engine/</code>.
+    </figcaption>
+
+    <div class="legend">
+      <span class="legend-item"><span class="legend-swatch box"></span> module / stage</span>
+      <span class="legend-item"><span class="legend-swatch engine"></span> engine.Simulation</span>
+      <span class="legend-item"><span class="legend-swatch out"></span> output artefact</span>
+      <span class="legend-item"><span class="legend-swatch"></span> data / call flow</span>
+      <span class="legend-item"><span class="legend-swatch verify"></span> verifies</span>
+    </div>
+  </figure>
+
+  <footer>
+    <span>iidsim — WAT division railway simulator</span>
+    <span>docs/restructure-notes.md · docs/simulation-engine.md</span>
+  </footer>
+</div>

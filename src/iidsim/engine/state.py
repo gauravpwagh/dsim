@@ -1,17 +1,17 @@
 """Per-run simulation state, set up once in __init__ -- everything the other mixins (resolve/priority/randomness/events) and run() read/write via self.X. See docs/restructure-notes.md for how this was derived (Python's own co_freevars, not guesswork)."""
 
-import json
-import time
+# import json
+# import time
 import numpy as np
 import pandas as pd
-from pandas import Timestamp
-from scipy import stats as _halt_dev_stats
-from openpyxl.styles import Alignment, Font
+# from pandas import Timestamp
+# from scipy import stats as _halt_dev_stats
+# from openpyxl.styles import Alignment, Font
 import iidsim.network as _network
 from iidsim import schedules
 from iidsim.data import geography, halt_deviation, timing
-from iidsim.reporting.chart import plot_railway_chart
-from iidsim.reporting.extract import filter_df_by_date_window, get_formatted_data_from_df
+# from iidsim.reporting.chart import plot_railway_chart
+# from iidsim.reporting.extract import filter_df_by_date_window, get_formatted_data_from_df
 
 class SimulationState:
 
@@ -19,7 +19,21 @@ class SimulationState:
         self.chart_duration_hrs = chart_duration_hrs
         self.headway_distance = headway_distance
         self.autoblock_stations = autoblock_stations
-        "Run one end-to-end simulation and write the Excel report, time-distance\n    chart PDF, and animator JSON for `corridor_dataset` on `network_section`.\n\n    corridor_dataset: a name from iidsim.schedules.available_corridors(), e.g.\n        'p_g_sprd_vzm_2days' -- replaces the old hardcoded per-corridor import. Still\n        used to derive output filenames even when `trains_override` is given.\n    network_section: one of 'psa_ktv', 'sprd_vzm', 'krdl_ktv' -- which corridor's\n        station order / segment distances to use for the output chart.\n    trains_override: optional list[iidsim.domain.train] to simulate directly instead of\n        loading `corridor_dataset` from iidsim.schedules -- for synthetic/targeted test\n        scenarios built against the real network (see tests/scenarios.py).\n\n    Returns a dict with the three output file paths plus the in-memory\n    total_schedule and trains the run produced.\n    "
+        '''Run one end-to-end simulation and write the Excel report, time-distance
+            chart PDF, and animator JSON for `corridor_dataset` on `network_section`.
+            
+            corridor_dataset: a name from iidsim.schedules.available_corridors(), e.g.
+            'p_g_sprd_vzm_2days' -- replaces the old hardcoded per-corridor import. Still
+            used to derive output filenames even when `trains_override` is given.
+            network_section: one of 'psa_ktv', 'sprd_vzm', 'krdl_ktv' -- which corridor's
+            station order / segment distances to use for the output chart.
+            
+            trains_override: optional list[iidsim.domain.train] to simulate directly instead of
+            loading `corridor_dataset` from iidsim.schedules -- for synthetic/targeted test
+            scenarios built against the real network (see tests/scenarios.py).
+            
+            Returns a dict with the three output file paths plus the in-memory
+            total_schedule and trains the run produced.'''
         np.random.seed(1234)
         self.stations_list = _network.stations_list
         self.blocksections_list = _network.blocksections_list

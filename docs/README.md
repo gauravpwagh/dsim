@@ -19,6 +19,7 @@ This documentation is split into focused files:
 
 | File | Covers |
 |---|---|
+| [architecture.html](architecture.html) | A one-page flowchart of the whole system — open in a browser |
 | [domain-model.md](domain-model.md) | The core classes: `train`, station, block section, and how the physical network graph is assembled (`iidsim.domain`, `iidsim.network`) |
 | [simulation-engine.md](simulation-engine.md) | The simulation engine — the event loop, conflict/priority rules, randomness models, and outputs (`iidsim.engine`) |
 | [data-files.md](data-files.md) | Auto-generated reference data: station longitudes, block-section distances/crossing-times/speeds, halt-deviation statistical fits (`iidsim.data`) |
