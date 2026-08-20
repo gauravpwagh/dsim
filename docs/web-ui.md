@@ -2,7 +2,8 @@
 
 `iidsim serve` starts a local Flask app (`src/iidsim/webapp/`) with a form to configure and
 launch a run, a live log, and, once the run finishes, an animated time-distance view, a
-per-train schedule browser, and download links for the three output files.
+per-train schedule browser, a punctuality dashboard, and download links for the run's
+output files.
 
 ```bash
 pip install -e ".[webapp]"
@@ -35,12 +36,19 @@ responsive to log polling while a run is in progress. Each run's outputs land un
   interactively instead of consumed by an external animator.
 - **Schedule** — a searchable list of every train with its full stop-by-stop simulated
   schedule (station, line, platform, arrival, departure).
+- **Performance** — a punctuality dashboard: summary cards (on-time %, average delay by
+  train type, worst delay), a hoverable bar chart of destination-arrival delay per train,
+  and a sortable/searchable table of planned vs simulated arrival and average per-stop
+  deviation. Built from `train.calc_tr_stats()` (`src/iidsim/domain/train.py`) -- the engine
+  already computes this per train at the end of every run and prints it to the log; the
+  webapp runner (`webapp/runner.py`) just calls it again read-only and writes the result to
+  `performance_stats.json` alongside the other outputs, so this needed no engine changes.
 - **Files** — download links for the Excel report, the time-distance chart PDF, and the
   animator JSON.
 
 ## Not included
 
-Deviation stats (simulated vs planned/actual) live in the Excel report's extra sheet but
-aren't surfaced in the UI itself -- the Visualize/Schedule tabs are built directly from the
-animator JSON, which only carries the simulated schedule. Download the Excel report for
-deviation numbers, or treat this as a follow-up if it's needed regularly.
+`train.calc_tr_stats()` only compares planned vs simulated (the Performance tab's numbers),
+not vs the real-world "actual" movement data some datasets carry -- that three-way
+comparison, plus the full per-stop deviation breakdown and outlier-adjusted aggregates, only
+lives in the Excel report's Sheet2/Sheet3. Download the Excel report if you need those.
