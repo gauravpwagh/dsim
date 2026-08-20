@@ -39,7 +39,11 @@ def main(argv=None):
     except Exception as exc:  # noqa: BLE001 -- reported to the UI, not swallowed
         import traceback
 
-        manifest = {"ok": False, "error": str(exc), "traceback": traceback.format_exc()}
+        manifest = {
+            "ok": False,
+            "error": f"{type(exc).__name__}: {exc}",
+            "traceback": traceback.format_exc(),
+        }
 
     with open(result_path, "w") as f:
         json.dump(manifest, f)

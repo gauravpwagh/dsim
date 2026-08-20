@@ -33,6 +33,33 @@ async function loadMeta() {
     opt.textContent = name;
     sel.appendChild(opt);
   }
+  syncCorridorToDataset();
+}
+
+// A dataset's train list is only valid against the one corridor whose station
+// order actually contains its stations -- picking the wrong one crashes chart
+// rendering deep in the run (KeyError on a station absent from that corridor).
+// Guess the right corridor from the dataset name so the common case "just
+// works", and flag the one dataset (the whole merged network) where no single
+// corridor is fully correct.
+function guessCorridor(datasetName) {
+  const name = datasetName.toLowerCase();
+  if (name.includes("krdl")) return "krdl_ktv";
+  if (name.includes("sprd")) return "sprd_vzm";
+  if (name.includes("psa") || name.includes("ktv_psa")) return "psa_ktv";
+  return null; // e.g. p_g_network_2days -- spans multiple corridors, no exact match
+}
+
+function syncCorridorToDataset() {
+  const dataset = $("#f-dataset").value;
+  const guess = guessCorridor(dataset);
+  const hint = $("#f-corridor-hint");
+  if (guess) {
+    $("#f-corridor").value = guess;
+    hint.textContent = "";
+  } else {
+    hint.textContent = "This dataset spans multiple corridors -- no single station order is fully correct; pick the one closest to what you want charted.";
+  }
 }
 
 function fmtTime(t) {
@@ -507,6 +534,7 @@ function wireSchedule() {
 
 function wireForm() {
   $("#run-form").addEventListener("submit", submitRun);
+  $("#f-dataset").addEventListener("change", syncCorridorToDataset);
   $("#f-start-mode").addEventListener("change", (e) => {
     $("#f-start-manual-wrap").style.display = e.target.value === "manual" ? "flex" : "none";
   });
