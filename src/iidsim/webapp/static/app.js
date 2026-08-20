@@ -1,9 +1,13 @@
 "use strict";
 
+const MAX_LOG_DOM_LINES = 4000; // keep the <pre> bounded regardless of how long a run runs
+
 const state = {
   runs: new Map(),
   selectedRunId: null,
   logLen: 0,
+  logLines: [], // bounded tail actually rendered in the DOM
+  logOmitted: 0, // count of earlier lines not shown (server-side cap + client-side trim)
   pollTimer: null,
   listTimer: null,
   animator: null,
@@ -151,15 +155,42 @@ async function submitRun(ev) {
 function selectRun(id) {
   state.selectedRunId = id;
   state.logLen = 0;
+  state.logLines = [];
+  state.logOmitted = 0;
   state.animator = null;
   $("#empty-state").style.display = "none";
   $("#tabs").style.display = "flex";
   $("#log-output").textContent = "";
+  $("#log-download").href = `/api/runs/${id}/log.txt`;
   document.querySelectorAll(".run-row").forEach((el) => el.classList.remove("selected"));
   refreshRunsList();
   if (state.pollTimer) clearInterval(state.pollTimer);
   pollSelectedRun();
   state.pollTimer = setInterval(pollSelectedRun, 900);
+}
+
+// Appends `lines` to the bounded on-screen log buffer, trimming the oldest
+// lines once it grows past MAX_LOG_DOM_LINES so the <pre> (and the string
+// rebuild below) stay a fixed size no matter how long a run runs or how much
+// history a just-opened finished run already has.
+function appendLogLines(lines, serverOmitted) {
+  if (serverOmitted) state.logOmitted += serverOmitted;
+  state.logLines.push(...lines);
+  const excess = state.logLines.length - MAX_LOG_DOM_LINES;
+  if (excess > 0) {
+    state.logLines.splice(0, excess);
+    state.logOmitted += excess;
+  }
+}
+
+function renderLog() {
+  const pre = $("#log-output");
+  const atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40;
+  const header = state.logOmitted
+    ? `--- ${state.logOmitted.toLocaleString()} earlier line(s) omitted for display; use "Download full log" for the complete output ---\n\n`
+    : "";
+  pre.textContent = header + state.logLines.join("\n");
+  if (atBottom) pre.scrollTop = pre.scrollHeight;
 }
 
 async function pollSelectedRun() {
@@ -170,12 +201,11 @@ async function pollSelectedRun() {
   const run = await res.json();
   state.runs.set(id, run);
 
-  if (run.log.length) {
-    const pre = $("#log-output");
-    const atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40;
-    pre.textContent += (state.logLen > 0 ? "\n" : "") + run.log.join("\n");
+  let changed = false;
+  if (run.log.length || run.log_omitted) {
+    appendLogLines(run.log, run.log_omitted);
     state.logLen = run.log_total;
-    if (atBottom) pre.scrollTop = pre.scrollHeight;
+    changed = true;
   }
 
   $("#queue-status").textContent = `run ${id} · ${run.state}`;
@@ -183,14 +213,15 @@ async function pollSelectedRun() {
   if (run.state === "error") {
     clearInterval(state.pollTimer);
     state.pollTimer = null;
-    const pre = $("#log-output");
-    pre.textContent += `\n\n--- FAILED ---\n${run.error || ""}`;
-    pre.scrollTop = pre.scrollHeight;
+    appendLogLines(["", "--- FAILED ---", run.error || ""]);
+    changed = true;
   } else if (run.state === "done") {
     clearInterval(state.pollTimer);
     state.pollTimer = null;
     if (!state.animator) await loadResults(id, run);
   }
+
+  if (changed) renderLog();
 }
 
 async function loadResults(runId, run) {

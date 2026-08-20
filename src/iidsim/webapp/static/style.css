@@ -221,6 +221,13 @@ section.viewer { display: flex; flex-direction: column; min-height: 0; }
 }
 .empty-state h2 { color: var(--ink); font-size: 1.1rem; }
 
+#log-download {
+  font-size: 0.76rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+#log-download:hover { text-decoration: underline; }
+
 #log-panel pre#log-output {
   flex: 1;
   margin: 0;

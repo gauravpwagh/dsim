@@ -15,12 +15,13 @@ import time
 import uuid
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_file, send_from_directory
+from flask import Flask, Response, jsonify, request, send_file, send_from_directory
 
 from iidsim.data import geography
 from iidsim.schedules import available_corridors
 
 NETWORK_SECTIONS = ["psa_ktv", "sprd_vzm", "krdl_ktv"]
+MAX_LOG_LINES_PER_POLL = 3000
 _STATIC_DIR = Path(__file__).parent / "static"
 
 RUNS: dict[str, dict] = {}
@@ -168,9 +169,27 @@ def create_app():
         since = request.args.get("since", type=int, default=0)
         with _RUNS_LOCK:
             summary = _summary(run)
-            summary["log"] = run["log"][since:]
+            slice_ = run["log"][since:]
+            # A run can produce hundreds of thousands of lines; returning the
+            # whole backlog in one response (e.g. when a UI first opens an
+            # already-finished run's Log tab) is what makes it feel slow to
+            # load. Cap it to the most recent lines and report how many were
+            # skipped -- log_total still reflects the true count so the next
+            # poll's `since` stays correct.
+            omitted = max(0, len(slice_) - MAX_LOG_LINES_PER_POLL)
+            summary["log"] = slice_[-MAX_LOG_LINES_PER_POLL:]
+            summary["log_omitted"] = omitted
             summary["log_total"] = len(run["log"])
         return jsonify(summary)
+
+    @app.get("/api/runs/<run_id>/log.txt")
+    def full_log(run_id):
+        run = RUNS.get(run_id)
+        if run is None:
+            return jsonify({"error": "not found"}), 404
+        with _RUNS_LOCK:
+            text = "\n".join(run["log"])
+        return Response(text, mimetype="text/plain")
 
     @app.get("/api/runs/<run_id>/files/<kind>")
     def download(run_id, kind):
