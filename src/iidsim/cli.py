@@ -46,7 +46,10 @@ def main(argv=None):
             raise SystemExit(
                 "the web UI needs Flask -- install it with: pip install -e \".[webapp]\""
             ) from exc
-        create_app().run(host=args.host, port=args.port, debug=args.debug)
+        # threaded=True: Flask's dev server is single-threaded by default, so a
+        # single slow request (e.g. a large log poll for a long run) would block
+        # every other request -- including a fresh page load -- until it finishes.
+        create_app().run(host=args.host, port=args.port, debug=args.debug, threaded=True)
         return
 
     result = run_simulation(
