@@ -228,19 +228,43 @@ section.viewer { display: flex; flex-direction: column; min-height: 0; }
 }
 #log-download:hover { text-decoration: underline; }
 
-#log-panel pre#log-output {
+#log-panel .log-output {
   flex: 1;
-  margin: 0;
   background: #0f1115;
   color: #d6dae1;
   border-radius: 8px;
   padding: 0.9rem;
   font-family: var(--mono);
   font-size: 0.76rem;
+  line-height: 1.55;
   overflow: auto;
+}
+
+.log-output .log-line {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+.log-output .indent-1 { padding-left: 1.1rem; }
+.log-output .indent-2 { padding-left: 2.2rem; color: #969ba5; }
+
+.log-output .log-divider {
+  margin-top: 0.9rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #2a2d35;
+  color: #e0a526;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.log-output .log-divider:first-child { margin-top: 0; border-top: none; padding-top: 0; }
+
+.log-output .log-headline { font-weight: 700; }
+.log-output .log-headline.arrival { color: #55b98a; }
+.log-output .log-headline.departure { color: #e0785c; }
+
+.log-output .log-note { color: #6b6f79; font-style: italic; }
+.log-output .log-error-marker { color: #e0785c; font-weight: 700; margin-top: 0.4rem; }
+.log-output .log-error { color: #e0785c; }
 
 .viz-toolbar {
   display: flex;

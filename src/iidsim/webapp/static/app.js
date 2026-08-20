@@ -170,12 +170,18 @@ function selectRun(id) {
 }
 
 // Appends `lines` to the bounded on-screen log buffer, trimming the oldest
-// lines once it grows past MAX_LOG_DOM_LINES so the <pre> (and the string
-// rebuild below) stay a fixed size no matter how long a run runs or how much
-// history a just-opened finished run already has.
+// lines once it grows past MAX_LOG_DOM_LINES so the log view (and the render
+// pass below) stay a fixed size no matter how long a run runs or how much
+// history a just-opened finished run already has. Blank lines carry no
+// information here (the engine's own print() calls scatter them for spacing
+// that the divider/headline styling below replaces) so they're dropped
+// rather than spending DOM budget on them.
 function appendLogLines(lines, serverOmitted) {
   if (serverOmitted) state.logOmitted += serverOmitted;
-  state.logLines.push(...lines);
+  for (const line of lines) {
+    if (line.trim() === "") continue;
+    state.logLines.push(line);
+  }
   const excess = state.logLines.length - MAX_LOG_DOM_LINES;
   if (excess > 0) {
     state.logLines.splice(0, excess);
@@ -183,14 +189,87 @@ function appendLogLines(lines, serverOmitted) {
   }
 }
 
+const DIVIDER_RE = /^-{3,}\s*t\s*=\s*(.+?)\s*-{3,}$/i;
+const HEADLINE_RE = /^event at time t\s*=\s*(.+?)\s+is (arrival|departure) of train\s+(\S+)\s+(?:at|from) station\s+(\S+)\s*$/i;
+// Best-effort dimming for the engine's most repetitive internal-function
+// chatter (candidate-line scans, connection-key lookups, etc.) so the lines
+// that actually say what happened aren't buried in it. Not exhaustive --
+// this is unstructured debug output, not a logging framework with levels.
+const NOISE_PREFIXES = [
+  "conn base output is", "blsec base", "inside ", "block assign fun",
+  "single candidate", "stns_events list is", "stns evnet length is",
+  "t_max is", "type of vals", "next blocksections list",
+  "next station lines occ details", "occ_details list is",
+  "down dir stn line count is", "block section assign function",
+];
+
+function capFirst(s) {
+  return s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+// Classifies one raw log line for display: what kind of line it is (so it
+// can be styled), the text to show, and how deep to indent it. Indentation
+// tracks the engine's own structure -- each "--- t = ... ---" divider starts
+// a new simulated event-processing block, and the "event at time t = ..."
+// line inside it is that block's headline; everything else in the block is
+// supporting detail nested under it.
+function formatLogLine(raw, indentRef) {
+  const trimmed = raw.trim();
+
+  const divider = trimmed.match(DIVIDER_RE);
+  if (divider) {
+    indentRef.level = 0;
+    return { cls: "log-divider", text: `T = ${divider[1]}` };
+  }
+
+  const headline = trimmed.match(HEADLINE_RE);
+  if (headline) {
+    const [, time, kind, trainId, station] = headline;
+    const prep = kind === "arrival" ? "at" : "from";
+    indentRef.level = 2;
+    return {
+      cls: `log-headline ${kind} indent-1`,
+      text: `${capFirst(kind)} — train ${trainId} ${prep} station ${station.toUpperCase()} · ${time}`,
+    };
+  }
+
+  if (trimmed === "--- FAILED ---") {
+    indentRef.afterFailedMarker = true;
+    return { cls: "log-error-marker", text: trimmed };
+  }
+  if (indentRef.afterFailedMarker) {
+    indentRef.afterFailedMarker = false;
+    return { cls: "log-error", text: trimmed };
+  }
+
+  const lower = trimmed.toLowerCase();
+  const isNoise = NOISE_PREFIXES.some((p) => lower.startsWith(p));
+  const indentCls = indentRef.level === 2 ? "indent-2" : indentRef.level === 1 ? "indent-1" : "";
+  return { cls: isNoise ? `log-noise ${indentCls}` : `log-detail ${indentCls}`, text: capFirst(trimmed) };
+}
+
 function renderLog() {
-  const pre = $("#log-output");
-  const atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40;
-  const header = state.logOmitted
-    ? `--- ${state.logOmitted.toLocaleString()} earlier line(s) omitted for display; use "Download full log" for the complete output ---\n\n`
-    : "";
-  pre.textContent = header + state.logLines.join("\n");
-  if (atBottom) pre.scrollTop = pre.scrollHeight;
+  const container = $("#log-output");
+  const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 40;
+
+  const frag = document.createDocumentFragment();
+  if (state.logOmitted) {
+    const note = document.createElement("div");
+    note.className = "log-line log-note";
+    note.textContent = `--- ${state.logOmitted.toLocaleString()} earlier line(s) omitted for display; use "Download full log" for the complete output ---`;
+    frag.appendChild(note);
+  }
+  const indentRef = { level: 0, afterFailedMarker: false };
+  for (const raw of state.logLines) {
+    const formatted = formatLogLine(raw, indentRef);
+    if (!formatted) continue;
+    const el = document.createElement("div");
+    el.className = `log-line ${formatted.cls}`;
+    el.textContent = formatted.text;
+    frag.appendChild(el);
+  }
+  container.replaceChildren(frag);
+  if (atBottom) container.scrollTop = container.scrollHeight;
 }
 
 async function pollSelectedRun() {
