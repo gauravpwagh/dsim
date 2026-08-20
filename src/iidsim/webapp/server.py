@@ -196,13 +196,16 @@ def create_app():
         run = RUNS.get(run_id)
         if run is None or run["result"] is None:
             return jsonify({"error": "not found"}), 404
-        key = {"excel": "excel_filename", "chart": "chart_filename", "animator": "animator_filename"}.get(kind)
+        key = {
+            "excel": "excel_filename", "chart": "chart_filename",
+            "animator": "animator_filename", "stats": "stats_filename",
+        }.get(kind)
         if key is None:
             return jsonify({"error": f"unknown file kind {kind!r}"}), 400
         path = Path(run["result"][key])
         if not path.exists():
             return jsonify({"error": "file no longer exists"}), 404
-        as_attachment = kind != "animator"
+        as_attachment = kind not in ("animator", "stats")
         return send_file(path.resolve(), as_attachment=as_attachment)
 
     return app

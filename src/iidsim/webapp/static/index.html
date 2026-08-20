@@ -98,6 +98,7 @@
         <button class="tab-btn active" data-tab="log">Log</button>
         <button class="tab-btn" data-tab="visualize">Visualize</button>
         <button class="tab-btn" data-tab="schedule">Schedule</button>
+        <button class="tab-btn" data-tab="performance">Performance</button>
         <button class="tab-btn" data-tab="files">Files</button>
       </div>
 
@@ -141,6 +142,36 @@
         </div>
         <div id="schedule-detail">
           <p class="empty-state">Select a train on the left.</p>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="performance-panel" data-tab="performance">
+        <div class="perf-cards" id="perf-cards"></div>
+        <div class="viz-toolbar">
+          <label class="checkrow"><input type="checkbox" id="perf-show-p" checked><span class="legend-dot" style="background:var(--pass)"></span>Passenger</label>
+          <label class="checkrow"><input type="checkbox" id="perf-show-g" checked><span class="legend-dot" style="background:var(--goods)"></span>Goods</label>
+          <input type="text" id="perf-search" placeholder="filter by train id&hellip;" style="width:150px">
+          <span class="hint" style="margin-left:auto">Bars: destination arrival delay per train (minutes). Hover for detail.</span>
+        </div>
+        <div id="perf-canvas-wrap">
+          <canvas id="perf-canvas"></canvas>
+          <div id="perf-tooltip"></div>
+        </div>
+        <div class="table-scroll">
+          <table class="stops" id="perf-table">
+            <thead>
+              <tr>
+                <th data-sort="train_id">Train</th>
+                <th data-sort="train_type">Type</th>
+                <th data-sort="route">Route</th>
+                <th data-sort="planned_arrival">Planned arrival</th>
+                <th data-sort="simulated_arrival">Simulated arrival</th>
+                <th data-sort="delay_min">Delay (min)</th>
+                <th data-sort="avg_deviation_min">Avg deviation (min)</th>
+              </tr>
+            </thead>
+            <tbody id="perf-table-body"></tbody>
+          </table>
         </div>
       </div>
 

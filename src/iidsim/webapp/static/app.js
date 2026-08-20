@@ -20,6 +20,8 @@ const state = {
   rafId: null,
   lastFrameTs: null,
   selectedScheduleTrain: null,
+  stats: null,
+  perfSort: { key: "delay_min", dir: "desc" },
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -158,6 +160,7 @@ function selectRun(id) {
   state.logLines = [];
   state.logOmitted = 0;
   state.animator = null;
+  state.stats = null;
   $("#empty-state").style.display = "none";
   $("#tabs").style.display = "flex";
   $("#log-output").textContent = "";
@@ -304,16 +307,21 @@ async function pollSelectedRun() {
 }
 
 async function loadResults(runId, run) {
-  const [animatorRes, networkRes] = await Promise.all([
+  const [animatorRes, networkRes, statsRes] = await Promise.all([
     fetch(`/api/runs/${runId}/files/animator`),
     fetch(`/api/network/${run.config.network_section}`),
+    fetch(`/api/runs/${runId}/files/stats`),
   ]);
   state.animator = await animatorRes.json();
   state.network = await networkRes.json();
+  state.stats = await statsRes.json();
   buildVizData();
   renderScheduleList();
+  renderPerfCards();
+  renderPerfTable();
   wireFileButtons(runId);
   initViz();
+  drawPerfChart();
 }
 
 function wireFileButtons(runId) {
@@ -332,6 +340,12 @@ function wireTabs() {
       btn.classList.add("active");
       document.querySelector(`.tab-panel[data-tab="${btn.dataset.tab}"]`).classList.add("active");
       if (btn.dataset.tab === "visualize") requestAnimationFrame(() => draw());
+      // Direct call, not requestAnimationFrame: reading clientWidth/Height right
+      // after the classList change already forces the browser to flush the
+      // pending layout, so the canvas gets correct (non-zero) dimensions
+      // immediately -- no need to wait a frame (and rAF can be delayed
+      // indefinitely if the tab/pane isn't actively compositing).
+      if (btn.dataset.tab === "performance") drawPerfChart();
     });
   });
 }
@@ -640,6 +654,193 @@ function wireSchedule() {
   $("#schedule-search").addEventListener("input", renderScheduleList);
 }
 
+// ---------- performance dashboard ----------
+
+function perfFilteredTrains() {
+  const showP = $("#perf-show-p").checked;
+  const showG = $("#perf-show-g").checked;
+  const query = $("#perf-search").value.trim().toLowerCase();
+  return state.stats.trains.filter((t) => {
+    if (t.train_type === "p" && !showP) return false;
+    if (t.train_type === "g" && !showG) return false;
+    if (query && !t.train_id.toLowerCase().includes(query)) return false;
+    return true;
+  });
+}
+
+function renderPerfCards() {
+  const s = state.stats.summary;
+  const cards = [
+    { label: "Trains simulated", value: s.total_trains, sub: "" },
+    {
+      label: `On time (±${s.on_time_threshold_min} min)`,
+      value: s.on_time_pct === null ? "--" : `${s.on_time_pct}%`,
+      sub: "", cls: s.on_time_pct === null ? "" : s.on_time_pct >= 80 ? "ok" : s.on_time_pct < 50 ? "warn" : "",
+    },
+    { label: "Passenger avg delay", value: s.passenger_avg_delay_min === null ? "--" : `${s.passenger_avg_delay_min} min`, sub: "" },
+    { label: "Goods avg delay", value: s.goods_avg_delay_min === null ? "--" : `${s.goods_avg_delay_min} min`, sub: "" },
+    {
+      label: "Worst delay", cls: "warn",
+      value: s.worst_delay ? `${s.worst_delay.delay_min} min` : "--",
+      sub: s.worst_delay ? `train ${s.worst_delay.train_id}` : "",
+    },
+  ];
+  const wrap = $("#perf-cards");
+  wrap.innerHTML = "";
+  for (const c of cards) {
+    const el = document.createElement("div");
+    el.className = `perf-card ${c.cls || ""}`;
+    el.innerHTML = `
+      <span class="perf-card-label">${c.label}</span>
+      <span class="perf-card-value">${c.value}</span>
+      <span class="perf-card-sub">${c.sub}</span>`;
+    wrap.appendChild(el);
+  }
+}
+
+let perfCanvasCtx = null;
+let perfBars = [];
+
+function drawPerfChart() {
+  if (!state.stats) return;
+  const canvas = $("#perf-canvas");
+  const wrap = $("#perf-canvas-wrap");
+  const dpr = window.devicePixelRatio || 1;
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  if (w === 0 || h === 0) return; // panel not visible yet; redrawn on tab activation
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  perfCanvasCtx = canvas.getContext("2d");
+  const ctx = perfCanvasCtx;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  const css = getComputedStyle(document.documentElement);
+  const line = css.getPropertyValue("--line").trim();
+  const muted = css.getPropertyValue("--muted").trim();
+  const pass = css.getPropertyValue("--pass").trim();
+  const goods = css.getPropertyValue("--goods").trim();
+  const monoFont = css.getPropertyValue("--mono").trim() || "monospace";
+
+  const trains = [...perfFilteredTrains()].sort((a, b) => a.simulated_arrival.localeCompare(b.simulated_arrival));
+  perfBars = [];
+  if (trains.length === 0) return;
+
+  const pad = { left: 44, right: 12, top: 10, bottom: 8 };
+  const plotW = w - pad.left - pad.right;
+  const plotH = h - pad.top - pad.bottom;
+  const maxAbs = Math.max(5, ...trains.map((t) => Math.abs(t.delay_min)));
+  const yOf = (delay) => pad.top + plotH / 2 - (delay / maxAbs) * (plotH / 2);
+  const zeroY = yOf(0);
+
+  ctx.strokeStyle = line;
+  ctx.globalAlpha = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, zeroY);
+  ctx.lineTo(w - pad.right, zeroY);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  ctx.font = `10px ${monoFont}`;
+  ctx.fillStyle = muted;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.fillText(`+${maxAbs.toFixed(0)}m`, pad.left - 6, pad.top);
+  ctx.fillText("0", pad.left - 6, zeroY);
+  ctx.fillText(`-${maxAbs.toFixed(0)}m`, pad.left - 6, pad.top + plotH);
+
+  const barGap = 2;
+  const barW = Math.max(1, plotW / trains.length - barGap);
+
+  // Search already narrowed `trains` (via perfFilteredTrains) to only the
+  // matching ones, so every bar drawn here is a match -- no separate dimming
+  // pass needed, unlike the Visualize tab where search only highlights
+  // within an otherwise-full set of train lines.
+  trains.forEach((t, i) => {
+    const x = pad.left + i * (barW + barGap);
+    const y = yOf(t.delay_min);
+    const barTop = Math.min(y, zeroY);
+    const barH = Math.max(1, Math.abs(zeroY - y));
+    ctx.fillStyle = t.train_type === "p" ? pass : goods;
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(x, barTop, barW, barH);
+    ctx.globalAlpha = 1;
+    perfBars.push({ x, y: barTop, w: barW, h: barH, train: t });
+  });
+}
+
+function wirePerfChartHover() {
+  const canvas = $("#perf-canvas");
+  const tooltip = $("#perf-tooltip");
+  canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const hit = perfBars.find((b) => mx >= b.x && mx <= b.x + b.w + 2 && my >= b.y && my <= b.y + b.h);
+    if (hit) {
+      tooltip.style.left = `${hit.x + hit.w / 2}px`;
+      tooltip.style.top = `${hit.y}px`;
+      tooltip.style.opacity = "1";
+      tooltip.textContent = `${hit.train.train_id} · ${hit.train.delay_min >= 0 ? "+" : ""}${hit.train.delay_min} min`;
+    } else {
+      tooltip.style.opacity = "0";
+    }
+  });
+  canvas.addEventListener("mouseleave", () => { tooltip.style.opacity = "0"; });
+  window.addEventListener("resize", () => { if (state.stats) drawPerfChart(); });
+}
+
+function renderPerfTable() {
+  if (!state.stats) return;
+  const { key, dir } = state.perfSort;
+  const trains = perfFilteredTrains();
+  const mul = dir === "asc" ? 1 : -1;
+  trains.sort((a, b) => {
+    const av = key === "route" ? `${a.origin}-${a.destination}` : a[key];
+    const bv = key === "route" ? `${b.origin}-${b.destination}` : b[key];
+    if (typeof av === "number" && typeof bv === "number") return (av - bv) * mul;
+    return String(av).localeCompare(String(bv)) * mul;
+  });
+
+  const body = $("#perf-table-body");
+  body.innerHTML = "";
+  for (const t of trains) {
+    const delayCls = t.delay_min > state.stats.summary.on_time_threshold_min ? "delay-late"
+      : t.delay_min < -state.stats.summary.on_time_threshold_min ? "delay-early" : "";
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${t.train_id}</td>
+      <td><span class="badge type-${t.train_type}">${t.train_type}</span></td>
+      <td>${t.origin} &rarr; ${t.destination}</td>
+      <td>${t.planned_arrival}</td>
+      <td>${t.simulated_arrival}</td>
+      <td class="${delayCls}">${t.delay_min >= 0 ? "+" : ""}${t.delay_min}</td>
+      <td>${t.avg_deviation_min}</td>`;
+    body.appendChild(row);
+  }
+
+  document.querySelectorAll("#perf-table th[data-sort]").forEach((th) => {
+    th.classList.toggle("sorted", th.dataset.sort === key);
+    th.classList.toggle("asc", th.dataset.sort === key && dir === "asc");
+  });
+}
+
+function wirePerformance() {
+  ["perf-show-p", "perf-show-g"].forEach((id) => $(`#${id}`).addEventListener("change", () => { drawPerfChart(); renderPerfTable(); }));
+  $("#perf-search").addEventListener("input", () => { drawPerfChart(); renderPerfTable(); });
+  wirePerfChartHover();
+  document.querySelectorAll("#perf-table th[data-sort]").forEach((th) => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.sort;
+      if (state.perfSort.key === key) {
+        state.perfSort.dir = state.perfSort.dir === "asc" ? "desc" : "asc";
+      } else {
+        state.perfSort = { key, dir: key === "train_id" || key === "route" ? "asc" : "desc" };
+      }
+      renderPerfTable();
+    });
+  });
+}
+
 // ---------- form wiring ----------
 
 function wireForm() {
@@ -657,6 +858,7 @@ function wireForm() {
   wireForm();
   wireViz();
   wireSchedule();
+  wirePerformance();
   await loadMeta();
   await refreshRunsList();
 })();

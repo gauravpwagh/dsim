@@ -315,6 +315,42 @@ table.stops { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
 table.stops th, table.stops td { text-align: left; padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--line); font-family: var(--mono); }
 table.stops th { color: var(--muted); font-family: var(--sans); text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.05em; }
 
+.perf-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.7rem; }
+.perf-card {
+  border: 1px solid var(--line); border-radius: 8px; padding: 0.7rem 0.9rem; background: var(--surface);
+  display: flex; flex-direction: column; gap: 0.2rem;
+}
+.perf-card .perf-card-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.perf-card .perf-card-value { font-family: var(--mono); font-size: 1.3rem; font-weight: 700; }
+.perf-card .perf-card-sub { font-size: 0.72rem; color: var(--muted); font-family: var(--mono); }
+.perf-card.warn .perf-card-value { color: var(--goods); }
+.perf-card.ok .perf-card-value { color: var(--ok); }
+
+#perf-canvas-wrap { position: relative; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); height: 240px; flex-shrink: 0; }
+#perf-canvas { width: 100%; height: 100%; display: block; }
+#perf-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--ink);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  transform: translate(-50%, -120%);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.08s;
+}
+
+.table-scroll { overflow: auto; flex: 1; }
+table.stops th[data-sort] { cursor: pointer; user-select: none; }
+table.stops th[data-sort]:hover { color: var(--ink); }
+table.stops th.sorted::after { content: " \25BE"; }
+table.stops th.sorted.asc::after { content: " \25B4"; }
+table.stops td.delay-late { color: var(--goods); font-weight: 600; }
+table.stops td.delay-early { color: var(--pass); font-weight: 600; }
+
 #files-panel .files-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.8rem; }
 .file-card {
   border: 1px solid var(--line); border-radius: 8px; padding: 0.9rem; background: var(--surface);
