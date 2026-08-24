@@ -1,11 +1,12 @@
-"""Stage 0 of docs/event-manager-design.md: a lazy-deletion min-heap replacing
-build_event_list() + the linear min-scan in Simulation.run() (events.py / run.py).
-resource_update_event() itself is untouched -- this only changes HOW the next event
-is picked, not what happens once it's picked.
+"""Stages 0-1 of docs/event-manager-design.md: a lazy-deletion min-heap replacing
+build_event_list() + the linear min-scan in Simulation.run() (events.py / run.py),
+plus an O(1) staleness-check cache (stage 1) so a pop never has to rescan a train's
+schedule. resource_update_event() itself is untouched -- this only changes HOW the
+next event is picked, not what happens once it's picked.
 
-Not wired in by default: Simulation(..., use_event_manager=True) opts in. See
-tests/test_event_manager.py for the side-by-side verification against the existing
-build_event_list() path this was checked against before being trusted.
+use_event_manager=True is the Simulation()/run_simulation() default; pass False for
+the original build_event_list() path if ever needed. See tests/test_event_manager.py
+for the side-by-side verification this was checked against before being trusted.
 """
 import heapq
 
@@ -32,6 +33,16 @@ class EventManager:
         self._sched_act = sched_act
         self._order_index = {tr_id: i for i, tr_id in enumerate(train_ids)}
         self._heap = []
+        # Stage 1: the last (time, type) known to be current for each train, kept in
+        # sync by _push_current() -- every call site that can change a train's
+        # schedule already calls notify_updated() for it (see run.py's
+        # refresh_candidates, verified exhaustively against every self.sched_updt()
+        # call site), so this dict is always accurate between events, not just
+        # "usually right." Lets pop_next() validate a popped entry with an O(1)
+        # lookup instead of rescanning that train's whole schedule -- see
+        # docs/event-manager-design.md section 5 for why this matters on long
+        # (multi-day) simulation horizons.
+        self._current = {}
         for tr_id in train_ids:
             self._push_current(tr_id)
 
@@ -51,6 +62,7 @@ class EventManager:
 
     def _push_current(self, tr_id):
         pending = self.next_pending(tr_id)
+        self._current[tr_id] = pending
         if pending is not None:
             t, event_type = pending
             heapq.heappush(self._heap, (t, self._order_index[tr_id], tr_id, event_type))
@@ -69,6 +81,6 @@ class EventManager:
         None the same as build_event_list() returning nothing selectable)."""
         while self._heap:
             t, _, tr_id, event_type = heapq.heappop(self._heap)
-            if self.next_pending(tr_id) == (t, event_type):
+            if self._current.get(tr_id) == (t, event_type):
                 return (t, event_type, tr_id)
         return None

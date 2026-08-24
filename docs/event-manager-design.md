@@ -1,8 +1,9 @@
 # EventManager & domain-object redesign — design doc
 
-> **Status: stage 0 implemented, verified, and now the default.** See
-> [restructure-notes.md](restructure-notes.md) for the engine split this builds on, and
-> [efficiency-review.md](efficiency-review.md) for the event-selection cost this was
+> **Status: stages 0 and 1 implemented, verified, and default.** Stage 1 shipped scoped
+> down from its original description -- see the note under [section 6](#6-staged-migration-plan).
+> See [restructure-notes.md](restructure-notes.md) for the engine split this builds on,
+> and [efficiency-review.md](efficiency-review.md) for the event-selection cost this was
 > originally motivated by.
 >
 > `src/iidsim/engine/event_manager.py`. `run_simulation(..., use_event_manager=False)`
@@ -11,10 +12,11 @@
 > existing `build_event_list()` path across the three synthetic branch-coverage scenarios,
 > a new tie-break scenario (two trains sharing an identical origin timestamp), and
 > `p_g_sprd_vzm_2days` with randomness on (also re-checked against the existing golden
-> Excel file). Manually verified against `p_g_krdl_ktv_2days` (52 trains) too: identical
-> `total_schedule`, and -- with `resource_update_event()` completely untouched --
-> wall-clock dropped from 69.5s to 51.0s (~27% faster) on that run alone. Stages 1-4 are
-> still just proposed.
+> Excel file). Manually verified against `p_g_krdl_ktv_2days` (52 trains, ~2-day horizon)
+> too: identical `total_schedule` both before and after stage 1. Wall-clock on that run:
+> 69.3-69.5s (old) -> 51.0s (stage 0) -> 49.8s (stage 0+1) -- stage 1's cache adds only a
+> modest win here since its benefit scales with schedule length per train, and 2 days
+> isn't long enough to show it dramatically. Stages 2-4 are still just proposed.
 
 ## 1. Motivation
 
@@ -187,8 +189,8 @@ comprehension-scope `t`-clobbering bug during the original engine split
 
 | Stage | Change | Risk | Verification |
 |---|---|---|---|
-| **0** | **Done, opt-in.** `EventManager` + heap; `resource_update_event()` untouched (black box) | Low -- pure event-selection swap, no decision logic touched | Verified: `tests/test_event_manager.py` (4 scenarios incl. tie-break, all pass) + manual `sprd_vzm`/`krdl_ktv` diffs (identical `total_schedule`, golden Excel still matches) |
-| **1** | `Train.next_pending_event()` / `advance_to()` replace external `sched_act` list mutation. Includes an O(1) next-pending-time cache (dict, keyed by train id), updated inside `advance_to()` -- see [Scalability](#5-scalability) for why this decouples event selection from schedule/horizon length | Low -- data-ownership move, not a decision move | Same diff suite as stage 0, plus a long-horizon scenario (multi-day) to confirm the cache stays consistent with the underlying schedule |
+| **0** | **Done, default.** `EventManager` + heap; `resource_update_event()` untouched (black box) | Low -- pure event-selection swap, no decision logic touched | Verified: `tests/test_event_manager.py` (4 scenarios incl. tie-break, all pass) + manual `sprd_vzm`/`krdl_ktv` diffs (identical `total_schedule`, golden Excel still matches) |
+| **1** | **Done, scoped down from the original description below.** An O(1) `pop_next()` staleness-check cache inside `EventManager` (`self._current[tr_id]`, kept in sync by the same `notify_updated()` call stage 0 already makes) -- delivers the section-5 scalability goal (decoupling event selection from schedule/horizon length) without moving `sched_act` ownership. ~~`Train.next_pending_event()` / `advance_to()` replacing external `sched_act` list mutation~~ turned out **not** to be low-risk on inspection: `sched_act` is read/written directly in `events.py`, `priority.py`, `randomness.py`, `resolve.py`, *and* `run.py` (verified by grep) -- moving its ownership means touching the same "black box" content stage 0 was built specifically to avoid. Deferred; see the note below the table. | Low, as actually scoped -- self-contained inside `EventManager`, no other file touched | Same diff suite as stage 0 (unchanged, since it already covers both multi-day real corridors) -- all still pass; `krdl_ktv` re-checked manually: identical `total_schedule`, 51.0s -> 49.8s (modest, as expected -- the benefit scales with horizon length and 2 days isn't long enough to show much) |
 | **2** | `Station.assign_line()` / `release_line()` absorb `stn_line_assign` | Medium -- not flagged as one of the fragile workaround areas, but touches platform-fallback logic | Diff suite + re-run `test_platform_assignment_fallback` (already covers this exact branch) |
 | **3** | `BlockSection.request_entry()` / `release()` absorb queue priority, single/double-line resolution, autoblock sequencing | **High** -- this is precisely the "intricate, comment-documented workaround" code flagged throughout this project's history | Diff suite + `test_autoblock_headway_sequencing` + `test_goods_starvation_override` must pass before *and* after; new tests for any branch not yet covered |
 | **4** | Attempt sibling-redirect coverage (`find_free_sibling_blsec`), now unit-testable against a bare `BlockSection` with a synthetic queue instead of needing a full-network timing coincidence | Exploratory -- may or may not close the gap; not a prerequisite for stages 0-3 | New unit tests only; this is additive, not a behavior change |
@@ -196,6 +198,17 @@ comprehension-scope `t`-clobbering bug during the original engine split
 Stages 2-3 are where the "implicit `self.X` -> explicit parameters" translation from
 section 2 has to happen carefully. Recommend doing stage 3 as its own isolated review pass,
 not bundled with anything else, given the risk level.
+
+**On stage 1's rescoping**: the original plan (section 3) described `Train` gaining
+`next_pending_event()` / `advance_to()` and taking over `sched_act` ownership from
+`Simulation`. On implementation, that turned out to require touching every mixin, not
+just the event loop -- the same scope and risk as stages 2-3, misclassified as "low risk"
+above because it reads like a data-ownership move rather than a decision-logic move. The
+actual low-risk piece of stage 1 -- the O(1) cache -- didn't need any of that, so it
+shipped on its own; the full `Train`-owns-its-schedule migration is deferred, effectively
+folded into whatever stage eventually touches `sched_act` broadly (most likely alongside
+stage 3, since `BlockSection`'s queue logic already reads `sched_act` indirectly through
+several of the mixin methods it would absorb).
 
 ## 7. Non-goals
 
