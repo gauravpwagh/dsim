@@ -75,7 +75,7 @@ class ResolveMixin:
                     if blsec.occ_ind == 0:
                         print('train', self.next_event_tr_id, 'is queued in free', blsec.name, '-> assigning it')
                         return blsec
-                    sib = self.find_free_sibling_blsec(blsec, stn_start, stn_line_occ_name, train_dir=train_dir)
+                    sib = blsec.find_free_sibling(self.blsec_lookup, stn_start, stn_line_occ_name, train_dir=train_dir)
                     if sib is not None:
                         print('train', self.next_event_tr_id, 'was queued in occupied', blsec.name, '-> redirecting to free sibling', sib.name)
                         t_index = self.sched_act[self.next_event_tr_id].index(self.t)
@@ -191,24 +191,10 @@ class ResolveMixin:
                 return key
         return None
 
-    def find_free_sibling_blsec(self, blsec, stn_obj=None, stn_line_name=None, train_dir=None):
-        base = '_'.join(blsec.name.split('_')[:-1])
-        for suffix in ('dn1', 'up1', 'mid1'):
-            sib_name = f'{base}_{suffix}'
-            if sib_name == blsec.name:
-                continue
-            sib = self.blsec_lookup.get(sib_name)
-            if sib is None:
-                continue
-            if train_dir is not None and (not (sib.dir_mvmt[0:2] == train_dir or sib.dir_mvmt[0:3] == 'mid')):
-                continue
-            if sib.occ_ind != 0 or len(sib.blsec_queue) > 0:
-                continue
-            if stn_obj is not None and stn_line_name is not None:
-                if sib.name + '_' + stn_line_name not in stn_obj.connections:
-                    continue
-            return sib
-        return None
+    # find_free_sibling_blsec was here -- moved to BlockSection.find_free_sibling
+    # (domain/block_section.py) as part of docs/event-manager-design.md stage 4. See
+    # that method's docstring for the translation notes; verified via a before/after
+    # total_schedule diff (git history has the original if it's ever needed).
 
     def find_stn3(self, stn1, stn2):
         """Return the station adjacent to stn2 along the train's direction of travel,

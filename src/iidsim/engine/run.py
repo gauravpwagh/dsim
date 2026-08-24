@@ -80,7 +80,7 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                                 redirect_stn_obj, redirect_stn_line = (self.stns_event[0], stn_line_stn1_r)
                             else:
                                 redirect_stn_obj, redirect_stn_line = (None, None)
-                            sib = self.find_free_sibling_blsec(self.blsec_t, redirect_stn_obj, redirect_stn_line, train_dir=_queue_dir) if redirect_stn_obj is not None else None
+                            sib = self.blsec_t.find_free_sibling(self.blsec_lookup, redirect_stn_obj, redirect_stn_line, train_dir=_queue_dir) if redirect_stn_obj is not None else None
                             if sib is not None:
                                 qi = self.blsec_t.blsec_queue.index(k)
                                 tr_index_q = self.blsec_t.blsec_queue[qi + 3]

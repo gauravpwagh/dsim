@@ -101,6 +101,46 @@ class block_sec():
             for i in range(3, len(j)):
                 self.autoblsec_list[idx][i] = j[i] + new_occ_inc
 
+    def find_free_sibling(self, blsec_lookup, stn_obj=None, stn_line_name=None, train_dir=None):
+        """A free parallel block section (same station pair, different direction-suffix)
+        this train could be redirected onto if `self` is occupied/queued. Stage 4 of
+        docs/event-manager-design.md -- translated line-for-line from
+        ResolveMixin.find_free_sibling_blsec (resolve.py), moved here because it was
+        already essentially a BlockSection-scoped decision (every read was `self`/`sib`/
+        explicit parameters; the only outside dependency was the network-wide
+        name->block-section lookup, now passed in). This is what makes it safe to
+        unit-test directly against synthetic block sections instead of needing to force
+        an exact full-simulation timing coincidence, which is what the sibling-redirect
+        coverage gap (tests/test_branch_coverage.py) had failed to do ~10 times before --
+        see tests/test_sibling_redirect.py.
+
+        blsec_lookup: {name: block_sec} -- the network-wide lookup (Simulation's
+        self.blsec_lookup), needed to find candidate siblings by name.
+        stn_obj / stn_line_name: if given, a candidate sibling must actually connect to
+        this station line to be returned.
+        train_dir: if given ('up' or 'dn'), a candidate sibling must run that direction
+        (or be bidirectional, 'mid') to be returned.
+
+        Checks dn1, then up1, then mid1, in that order -- the first eligible one wins.
+        """
+        base = '_'.join(self.name.split('_')[:-1])
+        for suffix in ('dn1', 'up1', 'mid1'):
+            sib_name = f'{base}_{suffix}'
+            if sib_name == self.name:
+                continue
+            sib = blsec_lookup.get(sib_name)
+            if sib is None:
+                continue
+            if train_dir is not None and (not (sib.dir_mvmt[0:2] == train_dir or sib.dir_mvmt[0:3] == 'mid')):
+                continue
+            if sib.occ_ind != 0 or len(sib.blsec_queue) > 0:
+                continue
+            if stn_obj is not None and stn_line_name is not None:
+                if sib.name + '_' + stn_line_name not in stn_obj.connections:
+                    continue
+            return sib
+        return None
+
     def process_autoblock_departure(self, t, t_ind, next_event_tr_id, next_event_type, next_event_conn, train, stn0, stn1, sched_act, total_schedule, headway_distance, stn_line_occ_name, autoblock_stations, tr_sched_updt_fn, sched_updt_fn):
         """Autoblock (moving-block signalling) departure sequencing: decides whether a
         train departing onto this automatic block section can go now or must wait for
