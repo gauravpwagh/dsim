@@ -4,10 +4,14 @@ station-line platform-assignment fallback pass. See tests/scenarios.py for how e
 synthetic scenario is constructed, and docs/restructure-notes.md for why this coverage
 matters before attempting any further decomposition of the engine.
 
-Sibling block-section redirect (find_free_sibling_blsec) is a known gap: it requires a
-train to be re-queued on a section that stays busy while its sibling happens to become
-free at exactly the right moment, which proved difficult to force deterministically by
-hand-crafted timing (see the git history for what was tried). Not covered here.
+Sibling block-section redirect was a known gap here: forcing it via a full-simulation
+scenario (a train re-queued on a section that stays busy while its sibling happens to
+become free at exactly the right moment) proved difficult to hand-craft deterministically
+(see the git history for what was tried). Closed differently, not by extending this file:
+docs/event-manager-design.md stage 4 moved the decision itself
+(BlockSection.find_free_sibling, domain/block_section.py) out of the engine, which made it
+directly unit-testable against synthetic block sections instead -- see
+tests/test_sibling_redirect.py.
 """
 from iidsim.engine import run_simulation
 

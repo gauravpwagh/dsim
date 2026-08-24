@@ -1,6 +1,7 @@
 # EventManager & domain-object redesign — design doc
 
-> **Status: stages 0, 1, 2, and 3 implemented and verified.** Stage 1 shipped scoped down
+> **Status: all four stages implemented and verified. The plan is complete.** Stage 1
+> shipped scoped down
 > from its original description -- see the note under [section 6](#6-staged-migration-plan).
 > See [restructure-notes.md](restructure-notes.md) for the engine split this builds on,
 > and [efficiency-review.md](efficiency-review.md) for the event-selection cost this was
@@ -39,7 +40,18 @@
 > the time that branch is reached) -- see the stage-3 rows in section 6 and each
 > method's docstring for specifics. `stn_line_assign`'s sibling dead code
 > (`update_blsec_queue_priority` in `priority.py`) was likewise deleted after the move.
-> Stage 4 (sibling-redirect coverage) is still just proposed.
+>
+> Stage 4 closed the sibling-redirect coverage gap, differently than originally
+> attempted: `find_free_sibling_blsec` (resolve.py) turned out to already be almost
+> entirely self-contained -- every read was `self`/`sib`/explicit parameters, with the
+> network-wide `blsec_lookup` dict as its only outside dependency. Moved to
+> `BlockSection.find_free_sibling()` (verified via the same stash/unstash diff as every
+> other stage), which made it directly unit-testable against synthetic block sections --
+> no network, no trains, no event loop. 11 new tests in `tests/test_sibling_redirect.py`
+> run in ~0.6s and cover occupancy, queue state, direction filtering (including `mid`
+> sections), station-connection filtering, and dn1/up1/mid1 priority order -- the exact
+> branch coverage that ~10 attempts at a full-simulation timing coincidence
+> (`tests/test_branch_coverage.py`'s original docstring) couldn't reliably force.
 
 ## 1. Motivation
 
@@ -76,7 +88,7 @@ actual `Station.assign_line()` signature.)*
 | Object | File | Owns (state) | Reaches in from outside for (behavior) |
 |---|---|---|---|
 | `Station` (`DynamicStation`) | `domain/station.py` | `tracks`, `connections` | ~~Which line to assign (`stn_line_assign`, `resolve.py:317`)~~ **now owns this (stage 2)** |
-| `BlockSection` (`block_sec`) | `domain/block_section.py` | `blsec_queue`, `autoblsec_list`, `occ_ind` | ~~Priority ordering, single/double-line resolution, autoblock sequencing~~ **now owns these (stage 3)**; sibling redirect (`find_free_sibling_blsec`, `resolve.py:194`) still external |
+| `BlockSection` (`block_sec`) | `domain/block_section.py` | `blsec_queue`, `autoblsec_list`, `occ_ind` | ~~Priority ordering, single/double-line resolution, autoblock sequencing, sibling redirect~~ **now owns all of these (stages 3-4)** |
 | `Train` | `domain/train.py` | `tr_schedule`, `tr_sched_act`, `calc_tr_stats()` | Its own "what's next" -- that's tracked separately, in `Simulation.sched_act[train_id]`, a flat list the train doesn't own |
 
 A concrete illustration of the coupling problem: `stn_line_assign` (the platform-assignment
@@ -220,7 +232,7 @@ comprehension-scope `t`-clobbering bug during the original engine split
 | **1** | **Done, scoped down from the original description below.** An O(1) `pop_next()` staleness-check cache inside `EventManager` (`self._current[tr_id]`, kept in sync by the same `notify_updated()` call stage 0 already makes) -- delivers the section-5 scalability goal (decoupling event selection from schedule/horizon length) without moving `sched_act` ownership. ~~`Train.next_pending_event()` / `advance_to()` replacing external `sched_act` list mutation~~ turned out **not** to be low-risk on inspection: `sched_act` is read/written directly in `events.py`, `priority.py`, `randomness.py`, `resolve.py`, *and* `run.py` (verified by grep) -- moving its ownership means touching the same "black box" content stage 0 was built specifically to avoid. Deferred; see the note below the table. | Low, as actually scoped -- self-contained inside `EventManager`, no other file touched | Same diff suite as stage 0 (unchanged, since it already covers both multi-day real corridors) -- all still pass; `krdl_ktv` re-checked manually: identical `total_schedule`, 51.0s -> 49.8s (modest, as expected -- the benefit scales with horizon length and 2 days isn't long enough to show much) |
 | **2** | **Done.** `Station.assign_line()` absorbs `stn_line_assign`, translated line-for-line (implicit `self.X` reads became explicit params: `train`, `blsec_t`, `prev_station`, `sched_act`, plus `blsec_id`/`conn_exists` injected as callables since those need network-wide lookups this class doesn't own). No `release_line()` needed -- `set_occupancy_dep()` already existed on `Station` and already was the release path. | Medium, as expected | Stashed/unstashed before-after `total_schedule` diff across 6 scenarios (all match) + full pytest suite (9/9 pass, including `test_platform_assignment_fallback`) |
 | **3** | **Done, in 3 sub-steps.** 3a: `BlockSection.ready_to_depart()` (single/double-line resolution, pure read-only). 3b: `BlockSection.update_queue_priority()` (absorbs `update_blsec_queue_priority`). 3c: `BlockSection.process_autoblock_departure()` (autoblock sequencing, the largest piece at ~170 lines). All three translated line-for-line; external collaborators (Station/Train mutation, `sched_updt`, `total_schedule`) injected as parameters/callables rather than duplicated, matching stage 2's pattern. | **High, as expected** -- 3c especially; see the two preserved-quirks note above | Each sub-step: independent commit, stashed/unstashed before-after `total_schedule` diff across all 6 scenarios (not just the design doc's originally-proposed `test_autoblock_headway_sequencing`/`test_goods_starvation_override` pair -- the full diff suite is strictly stronger and was already the established pattern from stage 2), plus a non-vacuous check for 3c confirming the autoblock branch actually fired |
-| **4** | Attempt sibling-redirect coverage (`find_free_sibling_blsec`), now unit-testable against a bare `BlockSection` with a synthetic queue instead of needing a full-network timing coincidence | Exploratory -- may or may not close the gap; not a prerequisite for stages 0-3 | New unit tests only; this is additive, not a behavior change |
+| **4** | **Done.** `find_free_sibling_blsec` moved to `BlockSection.find_free_sibling()` (a small preliminary move, since the function was already nearly self-contained), then 11 new unit tests against synthetic block sections closed the coverage gap directly | Low for the move (stash/unstash diff, same as 2/3) -- the tests themselves are additive, no behavior change | Move: diff suite, all 6 scenarios match. Tests: `tests/test_sibling_redirect.py`, 11/11 pass, ~0.6s |
 
 Stages 2-3 are where the "implicit `self.X` -> explicit parameters" translation from
 section 2 has to happen carefully. Recommend doing stage 3 as its own isolated review pass,
@@ -249,13 +261,10 @@ several of the mixin methods it would absorb).
 
 ## 8. Open risks
 
-- **Sibling-redirect gap**: already undocumented/uncovered before this plan
-  ([tests/test_branch_coverage.py](../tests/test_branch_coverage.py) docstring). Stage 4
-  might close it; if it doesn't, that's an acceptable outcome -- it's no worse than today.
-- **Single/double-line workaround logic**: the highest-risk single piece of the whole
-  engine, per its own comments. Stage 3 should not proceed without the branch-coverage
-  tests passing first, and probably needs additional synthetic scenarios beyond what
-  exists today.
+- ~~**Sibling-redirect gap**~~: closed by stage 4 -- see [tests/test_sibling_redirect.py](../tests/test_sibling_redirect.py).
+- ~~**Single/double-line workaround logic**~~: this ended up being stage 3c
+  (autoblock sequencing), not the single/double-line resolution (that was the much
+  simpler, pure-read-only 3a). All of stage 3 shipped -- see section 6.
 - **Implicit-state translation errors**: the most likely real bug source at every stage
   from 2 onward -- missing one of the ambient `self.X` reads a method relies on when
   converting it to explicit parameters. Mitigated by the diff-based verification, not by
@@ -272,4 +281,6 @@ several of the mixin methods it would absorb).
   at least one multi-day scenario, before the rescan fallback is removed.
 - Stages 2+: the extracted logic becomes independently unit-testable against a bare
   `Station`/`BlockSection` object, without needing a full `run_simulation()` call --
-  itself a concrete, checkable sign the extraction was done at the right seam.
+  itself a concrete, checkable sign the extraction was done at the right seam. Confirmed
+  concretely by stage 4: `tests/test_sibling_redirect.py` tests real production code
+  (`BlockSection.find_free_sibling`) with no network, trains, or event loop at all.
