@@ -16,25 +16,20 @@ import pandas as pd
 class ResolveMixin:
 
     def blsec_id(self, stn1, stn2):
-        for station in self.stations_list:
-            if station.name == stn1:
-                stn_start = station
-                break
-        for station in self.stations_list:
-            if station.name == stn2:
-                stn_end = station
-                break
+        stn_start = self.stations_by_name[stn1]
+        stn_end = self.stations_by_name[stn2]
         if stn_start.longitude - stn_end.longitude > 0:
             train_dir = 'up'
         else:
             train_dir = 'dn'
+        # conn_base() always returns the same west_east string regardless of argument
+        # order (it re-sorts by longitude internally), so conn_base(stn2, stn1) here
+        # would just recompute the identical string -- no need for a second lookup.
         blsec_base = self.conn_base(stn1, stn2)
-        blsec_base_alt = self.conn_base(stn2, stn1)
-        blsec_list = []
-        for blsec_candidate in self.blocksections_list:
-            if blsec_candidate.dir_mvmt[0:2] == train_dir or blsec_candidate.dir_mvmt[0:3] == 'mid':
-                if blsec_candidate.name.startswith(blsec_base + '_') or blsec_candidate.name.startswith(blsec_base_alt + '_'):
-                    blsec_list.append(blsec_candidate)
+        blsec_list = [
+            blsec_candidate for blsec_candidate in self.blsec_by_pair.get(blsec_base, [])
+            if blsec_candidate.dir_mvmt[0:2] == train_dir or blsec_candidate.dir_mvmt[0:3] == 'mid'
+        ]
         if self.next_event_type == 'a' and len(self.stns_event) > 1:
             for blsec in blsec_list:
                 if blsec.occ_ind == 1 and blsec.occ_train == self.next_event_tr_id:

@@ -51,6 +51,18 @@ class SimulationState:
         self.stations_by_name = {s.name: s for s in self.stations_list}
         self.station_longitudes = geography.station_longitudes()
         self.blsec_lookup = {b.name: b for b in self.blocksections_list}
+        # {'stn_west_stn_east': [block_sec, ...]} -- every block section whose name is
+        # that base plus a '_dirsuffix' (dn1/up1/mid1/mid2), grouped so blsec_id() (and
+        # any other station-pair candidate lookup) doesn't need to linear-scan the whole
+        # network for every call. Station codes never contain '_', so stripping a name's
+        # last '_'-segment always recovers exactly the base conn_base() would compute for
+        # that pair -- the same assumption BlockSection.find_free_sibling() already
+        # relies on. Preserves blocksections_list's original order within each bucket,
+        # since a few callers depend on which candidate comes first.
+        self.blsec_by_pair = {}
+        for b in self.blocksections_list:
+            base = '_'.join(b.name.split('_')[:-1])
+            self.blsec_by_pair.setdefault(base, []).append(b)
         if use_halt_deviation:
             self.halt_dev_fits_g = halt_deviation.fits_for('g')
             self.halt_dev_fits_p = halt_deviation.fits_for('p')
