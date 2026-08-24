@@ -1,6 +1,6 @@
 # EventManager & domain-object redesign — design doc
 
-> **Status: stages 0, 1, and 2 implemented and verified.** Stage 1 shipped scoped down
+> **Status: stages 0, 1, 2, and 3 implemented and verified.** Stage 1 shipped scoped down
 > from its original description -- see the note under [section 6](#6-staged-migration-plan).
 > See [restructure-notes.md](restructure-notes.md) for the engine split this builds on,
 > and [efficiency-review.md](efficiency-review.md) for the event-selection cost this was
@@ -24,7 +24,22 @@
 > unstashed, ran them again, and compared `total_schedule` pickle-for-pickle -- identical
 > across every scenario, including the platform-fallback one specifically built to hit
 > the relaxed-fallback branch. The old `stn_line_assign` was then deleted from
-> `resolve.py` (dead code, zero remaining callers). Stages 3-4 are still just proposed.
+> `resolve.py` (dead code, zero remaining callers).
+>
+> Stage 3 -- the highest-risk piece, ~430 lines of departure-readiness, queue-priority,
+> and autoblock-sequencing logic moved into `BlockSection` -- was broken into three
+> independently committed sub-steps (3a/3b/3c), each verified the same way as stage 2
+> (stash/unstash before-after `total_schedule` diff across all 6 scenarios) before moving
+> to the next. All three sub-steps matched exactly, including a non-vacuous check for 3c
+> (autoblock sequencing) confirming that branch actually fired during the diffed runs,
+> not just trivially matched by never being reached. All three sub-steps preserve latent
+> quirks from the original code exactly rather than "fixing" them (an unreachable
+> dead-code branch in 3a; a short-circuit `and` bug in 3c that only checks one of two
+> station names, harmless only because the caller already guarantees both are true by
+> the time that branch is reached) -- see the stage-3 rows in section 6 and each
+> method's docstring for specifics. `stn_line_assign`'s sibling dead code
+> (`update_blsec_queue_priority` in `priority.py`) was likewise deleted after the move.
+> Stage 4 (sibling-redirect coverage) is still just proposed.
 
 ## 1. Motivation
 
@@ -61,7 +76,7 @@ actual `Station.assign_line()` signature.)*
 | Object | File | Owns (state) | Reaches in from outside for (behavior) |
 |---|---|---|---|
 | `Station` (`DynamicStation`) | `domain/station.py` | `tracks`, `connections` | ~~Which line to assign (`stn_line_assign`, `resolve.py:317`)~~ **now owns this (stage 2)** |
-| `BlockSection` (`block_sec`) | `domain/block_section.py` | `blsec_queue`, `autoblsec_list`, `occ_ind` | Priority ordering (`update_blsec_queue_priority`, `priority.py:151`), single/double-line resolution, sibling redirect (`find_free_sibling_blsec`, `resolve.py:194`) |
+| `BlockSection` (`block_sec`) | `domain/block_section.py` | `blsec_queue`, `autoblsec_list`, `occ_ind` | ~~Priority ordering, single/double-line resolution, autoblock sequencing~~ **now owns these (stage 3)**; sibling redirect (`find_free_sibling_blsec`, `resolve.py:194`) still external |
 | `Train` | `domain/train.py` | `tr_schedule`, `tr_sched_act`, `calc_tr_stats()` | Its own "what's next" -- that's tracked separately, in `Simulation.sched_act[train_id]`, a flat list the train doesn't own |
 
 A concrete illustration of the coupling problem: `stn_line_assign` (the platform-assignment
@@ -204,7 +219,7 @@ comprehension-scope `t`-clobbering bug during the original engine split
 | **0** | **Done, default.** `EventManager` + heap; `resource_update_event()` untouched (black box) | Low -- pure event-selection swap, no decision logic touched | Verified: `tests/test_event_manager.py` (4 scenarios incl. tie-break, all pass) + manual `sprd_vzm`/`krdl_ktv` diffs (identical `total_schedule`, golden Excel still matches) |
 | **1** | **Done, scoped down from the original description below.** An O(1) `pop_next()` staleness-check cache inside `EventManager` (`self._current[tr_id]`, kept in sync by the same `notify_updated()` call stage 0 already makes) -- delivers the section-5 scalability goal (decoupling event selection from schedule/horizon length) without moving `sched_act` ownership. ~~`Train.next_pending_event()` / `advance_to()` replacing external `sched_act` list mutation~~ turned out **not** to be low-risk on inspection: `sched_act` is read/written directly in `events.py`, `priority.py`, `randomness.py`, `resolve.py`, *and* `run.py` (verified by grep) -- moving its ownership means touching the same "black box" content stage 0 was built specifically to avoid. Deferred; see the note below the table. | Low, as actually scoped -- self-contained inside `EventManager`, no other file touched | Same diff suite as stage 0 (unchanged, since it already covers both multi-day real corridors) -- all still pass; `krdl_ktv` re-checked manually: identical `total_schedule`, 51.0s -> 49.8s (modest, as expected -- the benefit scales with horizon length and 2 days isn't long enough to show much) |
 | **2** | **Done.** `Station.assign_line()` absorbs `stn_line_assign`, translated line-for-line (implicit `self.X` reads became explicit params: `train`, `blsec_t`, `prev_station`, `sched_act`, plus `blsec_id`/`conn_exists` injected as callables since those need network-wide lookups this class doesn't own). No `release_line()` needed -- `set_occupancy_dep()` already existed on `Station` and already was the release path. | Medium, as expected | Stashed/unstashed before-after `total_schedule` diff across 6 scenarios (all match) + full pytest suite (9/9 pass, including `test_platform_assignment_fallback`) |
-| **3** | `BlockSection.request_entry()` / `release()` absorb queue priority, single/double-line resolution, autoblock sequencing | **High** -- this is precisely the "intricate, comment-documented workaround" code flagged throughout this project's history | Diff suite + `test_autoblock_headway_sequencing` + `test_goods_starvation_override` must pass before *and* after; new tests for any branch not yet covered |
+| **3** | **Done, in 3 sub-steps.** 3a: `BlockSection.ready_to_depart()` (single/double-line resolution, pure read-only). 3b: `BlockSection.update_queue_priority()` (absorbs `update_blsec_queue_priority`). 3c: `BlockSection.process_autoblock_departure()` (autoblock sequencing, the largest piece at ~170 lines). All three translated line-for-line; external collaborators (Station/Train mutation, `sched_updt`, `total_schedule`) injected as parameters/callables rather than duplicated, matching stage 2's pattern. | **High, as expected** -- 3c especially; see the two preserved-quirks note above | Each sub-step: independent commit, stashed/unstashed before-after `total_schedule` diff across all 6 scenarios (not just the design doc's originally-proposed `test_autoblock_headway_sequencing`/`test_goods_starvation_override` pair -- the full diff suite is strictly stronger and was already the established pattern from stage 2), plus a non-vacuous check for 3c confirming the autoblock branch actually fired |
 | **4** | Attempt sibling-redirect coverage (`find_free_sibling_blsec`), now unit-testable against a bare `BlockSection` with a synthetic queue instead of needing a full-network timing coincidence | Exploratory -- may or may not close the gap; not a prerequisite for stages 0-3 | New unit tests only; this is additive, not a behavior change |
 
 Stages 2-3 are where the "implicit `self.X` -> explicit parameters" translation from

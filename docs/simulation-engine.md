@@ -120,7 +120,9 @@ to the platform requirement.
 ## Priority rules
 
 - **Passenger over goods, within a block-section queue** —
-  `update_blsec_queue_priority(...)` re-sorts a section's wait queue so all passenger
+  `BlockSection.update_queue_priority(...)` (`src/iidsim/domain/block_section.py`, moved
+  there from the engine's `update_blsec_queue_priority` in
+  docs/event-manager-design.md stage 3b) re-sorts a section's wait queue so all passenger
   entries precede all goods entries whenever a passenger train joins a queue that already
   has goods trains waiting, shifting the goods trains' start/end times later accordingly
   and propagating the change into their schedules and station-line occupancy records.
@@ -162,7 +164,9 @@ line at once, spaced by a minimum time/distance headway) rather than one-train-p
 physical blocking. These sections skip the normal `occ_ind`/queue machinery and instead
 use `autoblsec_list`: each entry records a train's speed and timing, and a following train
 is only allowed to depart once it can maintain at least `headway_distance` (3.6 km) of
-separation from the previous train, computed from both trains' speeds.
+separation from the previous train, computed from both trains' speeds. This decision lives
+in `BlockSection.process_autoblock_departure(...)` (`domain/block_section.py`, moved there
+from the engine's departure branch in docs/event-manager-design.md stage 3c).
 
 ## Ending and output
 
