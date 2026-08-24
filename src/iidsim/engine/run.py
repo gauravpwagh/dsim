@@ -32,13 +32,11 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
         if next_event_type == 'a':
             print('\n event at time t = ', t, ' is arrival of train ', self.next_event_train, ' at station', self.stns_event[0].name)
             t_end = self.sched_act[next_event_tr_id][t_ind + 1]
-            print('\n scheduled station halt end time is: ', t_end)
             prev_station = self.stns_event[1] if len(self.stns_event) > 1 else None
             stn_line = self.stns_event[0].assign_line(
                 self.tr_next_event, t_ind, next_event_tr_id, len_sched, self.sched_act,
                 self.blsec_t, prev_station, self.blsec_id, self.conn_exists,
             )
-            print('\n station line assignment information: ', stn_line)
             stn_line_occ_flag = stn_line[0]
             if stn_line_occ_flag == 0:
                 is_origin_stn = t_ind == 1
@@ -51,15 +49,12 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                     self.t_max = self.term_crit_calc()
                 else:
                     min_endtime = self.get_min_endtime(self.stns_event[0], t_ind, t_ind == 1)
-                    print('min end time is ', min_endtime)
                     new_arr_time = min_endtime + pd.Timedelta(minutes=1)
                     if new_arr_time <= t:
                         new_arr_time = t + pd.Timedelta(minutes=1)
                     new_occ_inc = new_arr_time - t
-                    print('\n new occ increament: ', new_occ_inc)
                     self.sched_updt(new_arr_time, t_ind, next_event_tr_id)
                     self.blsec_t.train_occ_updt(new_arr_time, 1)
-                    print('\n block section ', self.blsec_t.name, ' will be occupied by train ', self.next_event_train, 'until ', new_arr_time)
                     if len(self.blsec_t.blsec_queue) > 0:
                         q_len = len(self.blsec_t.blsec_queue)
                         q_tr_id = []
@@ -84,13 +79,11 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                             if sib is not None:
                                 qi = self.blsec_t.blsec_queue.index(k)
                                 tr_index_q = self.blsec_t.blsec_queue[qi + 3]
-                                print('queued train', k, 'redirected off still-delayed', self.blsec_t.name, '-> free sibling', sib.name, 'is available')
                                 self.blsec_t.queue_remove([k])
                                 self.sched_updt(t + pd.Timedelta(minutes=1), tr_index_q, k)
                                 redirected.append(k)
                         q_tr_id = [k for k in q_tr_id if k not in redirected]
                         self.blsec_t.queue_updt(new_occ_inc)
-                        print('\n list of train schedules from queue to be updated: ', q_tr_id)
                         for k in q_tr_id:
                             u = 0
                             for l in self.sched_act[k]:
@@ -100,34 +93,22 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                             train_name = k[:k.index('_')]
                             stn_line_stn0 = self.get_train_stnline_for_arrival_delay(self.stns_event, train_name)
                             stn_line_stn1 = self.get_train_stnline_for_departure_delay(self.stns_event, train_name)
-                            print('station line is ', stn_line_stn0, stn_line_stn1)
                             if stn_line_stn0 is not None:
                                 updt_dep_time = self.stns_event[1].tracks[stn_line_stn0][3] + new_occ_inc
                                 self.stns_event[1].set_occupancy_updt(stn_line_stn0, updt_dep_time)
-                                print(f'[queue update] train {train_name} at {self.stns_event[1].name}, stn line {stn_line_stn0}, updated occ_end to {updt_dep_time}')
                             elif stn_line_stn1 is not None:
                                 updt_dep_time = self.stns_event[0].tracks[stn_line_stn1][3] + new_occ_inc
                                 self.stns_event[0].set_occupancy_updt(stn_line_stn1, updt_dep_time)
-                                print(f'[queue update] train {train_name} at {self.stns_event[0].name}, stn line {stn_line_stn1}, updated occ_end to {updt_dep_time}')
-                            else:
-                                print(f'[queue update] train {train_name} not found at either station, skipping station line update')
-                        print('\n updated block section queue status: \n', self.blsec_t.blsec_queue)
-                    print('\n updated block section queue status after adding current event train at starting: \n', self.blsec_t.blsec_queue)
                     self.t_max = self.term_crit_calc()
-                    print('\n updated time at which simulation terminates: ', self.t_max)
                     if not is_origin_stn:
                         if len(self.blsec_t.autoblsec_list) > 0:
                             check_if_auto = self.autoblsec_check()
                             if next_event_tr_id == self.blsec_t.autoblsec_list[0][0] and check_if_auto:
                                 self.blsec_t.autoblsecsection_trains_updt(new_occ_inc)
-                                print('\n updated autoblock section list for block section ', self.blsec_t.name, ' is now ', self.blsec_t.autoblsec_list)
                                 for lst in self.blsec_t.autoblsec_list:
-                                    print('\n updating individual train schedule for train ', lst)
                                     tr_id = lst[0]
                                     new_arr_time = lst[4]
-                                    print('\n new arrival time after updating autoblock section list is: ', new_arr_time)
                                     new_ind = lst[2]
-                                    print('\n index position: ', new_ind, t_ind)
                                     self.sched_updt(pd.Timestamp(new_arr_time), new_ind, tr_id)
                     self.t_max = self.term_crit_calc()
             else:
@@ -139,41 +120,26 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                 t_end_new = t_end_new.replace(microsecond=0)
                 if t_end_new < t:
                     t_end_new = t
-                print('\n new station halt duration after adding randomness is: ', new_halt_duration, 'and', Y)
                 self.stns_event[0].set_occupancy_arr(self.stn_line_occ_name, t, t_end_new, self.tr_next_event.train_id)
                 self.stns_event[0].set_occupancy_updt(stn_line[1], t_end_new)
                 self.sched_updt(t_end_new, t_ind + 1, next_event_tr_id)
                 self.tr_next_event.tr_sched_act[self.stns_event[0].name][1] = t_end_new
-                print('\n train arrival event details at ', self.stns_event[0].name, ' station are:', self.stns_event[0].tracks[stn_line[1]][2])
                 print('\n -----> station line occupied: ', self.stn_line_occ_name)
                 if self.stns_event[0].tracks[self.stn_line_occ_name][1] != 0:
                     print('\n -----> platform occupied: ', 'P' + str(self.stns_event[0].tracks[self.stn_line_occ_name][1]))
                 if t_ind >= 4:
-                    print('train arrival blocksection is ', self.blsec_t.name)
-                    print('blocksection direction name is ', self.blsec_t.dir_mvmt)
                     next_event_conn = self.blsec_t.name + '_' + self.stn_line_occ_name
-                    print('connection name is ', next_event_conn)
                     self.stns_event[0].set_occ_conn_in(next_event_conn, self.tr_next_event.train_id, 0)
-                    print('\n station line connection ', next_event_conn, ' is now free', self.stns_event[0].connections[next_event_conn])
                     self.blsec_t.train_occ_end(t)
-                    print('\n block section ', self.blsec_t.name, ' is now free')
-                    print('\n prev block section (blsec_t) occupancy status is ', self.blsec_t.occ_ind)
-                    print('\n prev block section occ end time is ', self.blsec_t.occ_end)
                 self.sched_act[next_event_tr_id][t_ind] = pd.Timestamp('2100-06-01 22:50:00')
                 self.tr_sched_updt(t, next_event_type)
                 occupancy_end = self.sched_act[next_event_tr_id][t_ind + 1]
-                print('station line ', self.stn_line_occ_name, 'occ end time at station', self.stns_event[0].name, ' is ', self.stns_event[0].tracks[self.stn_line_occ_name][3])
                 self.stns_event[0].set_occupancy_updt(self.stn_line_occ_name, occupancy_end)
-                print('stns evnet length is ', len(self.stns_event))
                 if len(self.stns_event) > 1:
-                    print('inside to remvoe autoblock train ')
-                    print('blocksection name is ', self.blsec_t.name)
                     check_if_auto = self.autoblsec_check()
                     if self.blsec_t.autoblsec_list and next_event_tr_id == self.blsec_t.autoblsec_list[0][0] and check_if_auto:
                         self.blsec_t.autoblsecsection_trains_remove()
-                        print('\n train ', self.next_event_train, ' removed from autoblock section list of block section ', self.blsec_t.autoblsec_list)
                 self.t_max = self.term_crit_calc()
-                print('t_max is ', self.t_max)
                 try:
                     platform = self.stns_event[0].tracks[self.stn_line_occ_name][1]
                 except Exception:
@@ -184,23 +150,17 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
             print('\n event at time t = ', t, ' is departure of train ', self.next_event_train, ' from station', self.stns_event[0].name)
             self.stn_line_occ_name = ''
             for j in self.stns_event[0].tracks:
-                print('\n station line under consideration for departure event: ', j)
                 if self.stns_event[0].tracks[j][0] == 1 and self.stns_event[0].tracks[j][5] == self.tr_next_event.train_id:
                     self.stn_line_occ_name = j
-                    print('\n station line from which train ', self.next_event_train, ' will depart is ', self.stn_line_occ_name)
                     break
-            print('\n current train sched is ', self.sched_act[next_event_tr_id])
             if t_ind == len_sched - 1:
                 self.stns_event[0].set_occupancy_dep(self.stn_line_occ_name, t)
-                print('\n station line ', self.stn_line_occ_name, 'at station ', self.stns_event[0].name, 'will be free starting at t = ', t)
                 self.tr_sched_updt(t, next_event_type)
                 self.sched_act[next_event_tr_id][t_ind] = pd.Timestamp('2100-06-01 22:52:00')
                 self.total_schedule[next_event_tr_id]['simulated'].append([t])
             if t_ind < len_sched - 1:
                 next_event_conn = self.blsec_t.name + '_' + self.stn_line_occ_name
-                print('departure event connection is ', next_event_conn)
                 occ_details = self.check_next_blse_stn_occupancy(t_ind, len_sched)
-                print('occ_details list is ', occ_details)
                 stn1 = self.stns_event[0].name
                 stn2 = self.stns_event[1].name
                 current_train_dir = 1 if self.station_longitudes[stn2] > self.station_longitudes[stn1] else 0
@@ -216,11 +176,8 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                 curr_is_single = count_curr_blsec == 1
                 next_is_single = count_next_blsec == 1
                 ready_to_dept = self.blsec_t.ready_to_depart(count_curr_blsec, count_next_blsec, free_stn_lines, same_dir_stn_count, next_blsec_list, current_train_dir)
-                print(f'ready_to_dept={ready_to_dept} | free_stn={free_stn_lines} | same_dir_stn={same_dir_stn_count} | curr_SL={curr_is_single} | next_SL={next_is_single}')
                 check_if_auto = self.autoblsec_check()
-                print('autoblock case is result is ', check_if_auto)
                 if self.blsec_t.occ_ind == 0 and len(self.blsec_t.blsec_queue) == 0 and (not check_if_auto) and (ready_to_dept is True):
-                    print('\n case when block free and queue is empty')
                     if t_ind >= 4 and self.tr_next_event.tr_type == 'g':
                         updt_dep_time = self.goods_delay_due_to_passenger(self.sched_act, t, t_ind, next_event_tr_id)
                         original_dep_time = self.sched_act[next_event_tr_id][t_ind]
@@ -231,7 +188,6 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                             self.stns_event[0].set_occupancy_updt(self.stn_line_occ_name, updt_dep_time + pd.Timedelta(minutes=1))
                             self.sched_updt(updt_dep_time + pd.Timedelta(minutes=1), t_ind, next_event_tr_id)
                             self.t_max = self.term_crit_calc()
-                            print('After consideration of passenger trains at current station, and that coming from prev blsec /n')
                         else:
                             new_arrival_time = self.new_arr_by_speed_randomness(next_event_tr_id, t_ind)[0]
                             self.sched_updt(new_arrival_time, t_ind + 2, next_event_tr_id)
@@ -240,14 +196,10 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                             _expected_dir = 'up' if self.station_longitudes[self.stns_event[0].name] > self.station_longitudes[self.stns_event[1].name] else 'dn'
                             assert self.blsec_t.dir_mvmt[0:2] == _expected_dir or self.blsec_t.dir_mvmt[0:3] == 'mid', f'direction mismatch: train {next_event_tr_id} departing {self.stns_event[0].name}->{self.stns_event[1].name} (expected dir {_expected_dir!r}) about to occupy {self.blsec_t.name} (dir_mvmt={self.blsec_t.dir_mvmt!r})'
                             self.blsec_t.train_occ_start(t, t + t_blsec_occ_end, next_event_tr_id)
-                            print('\n block section ', self.blsec_t.name, ' will be occupied by train ', self.next_event_train, ' until ', new_arrival_time)
                             self.stns_event[0].set_occ_conn_out(next_event_conn, self.tr_next_event.train_id, 1)
-                            print('\n train ', self.next_event_train, 'departing station ', self.stns_event[0].name, ' from connection ', next_event_conn)
                             self.stns_event[0].set_occupancy_dep(self.stn_line_occ_name, t)
-                            print('\n station line ', self.stn_line_occ_name, 'at station ', self.stns_event[0].name, 'will be free starting at t = ', t)
                             self.tr_sched_updt(t, next_event_type)
                             self.sched_act[next_event_tr_id][t_ind] = pd.Timestamp('2100-06-01 22:52:00')
-                            print('\n block section ', self.blsec_t.name, 'queue status: ', self.blsec_t.blsec_queue)
                             self.total_schedule[next_event_tr_id]['simulated'].append([t])
                     else:
                         new_arrival_time = self.new_arr_by_speed_randomness(next_event_tr_id, t_ind)[0]
@@ -257,17 +209,12 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                         _expected_dir = 'up' if self.station_longitudes[self.stns_event[0].name] > self.station_longitudes[self.stns_event[1].name] else 'dn'
                         assert self.blsec_t.dir_mvmt[0:2] == _expected_dir or self.blsec_t.dir_mvmt[0:3] == 'mid', f'direction mismatch: train {next_event_tr_id} departing {self.stns_event[0].name}->{self.stns_event[1].name} (expected dir {_expected_dir!r}) about to occupy {self.blsec_t.name} (dir_mvmt={self.blsec_t.dir_mvmt!r})'
                         self.blsec_t.train_occ_start(t, t + t_blsec_occ_end, next_event_tr_id)
-                        print('\n block section ', self.blsec_t.name, ' will be occupied by train ', self.next_event_train, ' until ', new_arrival_time)
                         self.stns_event[0].set_occ_conn_out(next_event_conn, self.tr_next_event.train_id, 1)
-                        print('\n train ', self.next_event_train, 'departing station ', self.stns_event[0].name, ' from connection ', next_event_conn)
                         self.stns_event[0].set_occupancy_dep(self.stn_line_occ_name, t)
-                        print('\n station line ', self.stn_line_occ_name, 'at station ', self.stns_event[0].name, 'will be free starting at t = ', t)
                         self.tr_sched_updt(t, next_event_type)
                         self.sched_act[next_event_tr_id][t_ind] = pd.Timestamp('2100-06-01 22:52:00')
-                        print('\n block section ', self.blsec_t.name, 'queue status: ', self.blsec_t.blsec_queue)
                         self.total_schedule[next_event_tr_id]['simulated'].append([t])
                 elif self.blsec_t.occ_ind == 0 and len(self.blsec_t.blsec_queue) > 0 and (not check_if_auto) and (ready_to_dept is True):
-                    print('when block is free and queue is not empty')
                     if self.tr_next_event.tr_type == 'g' and t_ind >= 4:
                         updt_dep_time = self.goods_delay_due_to_passenger(self.sched_act, t, t_ind, next_event_tr_id)
                         original_dep_time = self.sched_act[next_event_tr_id][t_ind]
@@ -278,15 +225,11 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                             self.stns_event[0].set_occupancy_updt(self.stn_line_occ_name, updt_dep_time + pd.Timedelta(minutes=1))
                             self.sched_updt(updt_dep_time + pd.Timedelta(minutes=1), t_ind, next_event_tr_id)
                             self.t_max = self.term_crit_calc()
-                            print('After consideration of passenger trains at current station, and that coming from prev blsec /n')
                             time_increament = updt_dep_time + pd.Timedelta(minutes=1) - t
                             self.blsec_t.queue_updt(time_increament)
                             for i in range(0, len(self.blsec_t.blsec_queue), 6):
                                 trainid, traintype, blsec_occupancy_start = (self.blsec_t.blsec_queue[i], self.blsec_t.blsec_queue[i + 2], self.blsec_t.blsec_queue[i + 4])
                                 for line, data in self.stns_event[0].tracks.items():
-                                    print('given train id is ', trainid)
-                                    print('goods train data is ', data)
-                                    print('goods train station line', line)
                                     if data[-1] == trainid:
                                         self.stns_event[0].set_occupancy_updt(line, blsec_occupancy_start + pd.Timedelta(minutes=1))
                                         self.sched_updt(blsec_occupancy_start + pd.Timedelta(minutes=1), self.blsec_t.blsec_queue[i + 3], trainid)
@@ -304,7 +247,6 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                                         q_tr_id.append([self.blsec_t.blsec_queue[v], self.blsec_t.blsec_queue[v + 3]])
                                     v += 6
                                 self.blsec_t.queue_updt(time_inc)
-                                print('list of train schedules from queue to be updated due to speed randomness: ', q_tr_id)
                                 for k, t_ind_q in q_tr_id:
                                     self.sched_updt(self.sched_act[k][t_ind_q] + time_inc, t_ind_q, k)
                                     train_name = k[:k.index('_')]
@@ -313,14 +255,9 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                                     if stn_line_stn0 is not None:
                                         updt_dep_time = self.stns_event[1].tracks[stn_line_stn0][3] + time_inc
                                         self.stns_event[1].set_occupancy_updt(stn_line_stn0, updt_dep_time)
-                                        print(f'[queue update] train {train_name} at {self.stns_event[1].name}, stn line {stn_line_stn0}, updated occ_end to {updt_dep_time}')
                                     elif stn_line_stn1 is not None:
                                         updt_dep_time = self.stns_event[0].tracks[stn_line_stn1][3] + time_inc
                                         self.stns_event[0].set_occupancy_updt(stn_line_stn1, updt_dep_time)
-                                        print(f'[queue update] train {train_name} at {self.stns_event[0].name}, stn line {stn_line_stn1}, updated occ_end to {updt_dep_time}')
-                                    else:
-                                        print(f'[queue update] train {train_name} not found at either station, skipping station line update')
-                                print('updated block section queue status due to speed randomness: ', self.blsec_t.blsec_queue)
                             self.sched_updt(new_arrival_time, t_ind + 2, next_event_tr_id)
                             t_blsec_occ_end = new_arrival_time - t
                             self.t_max = self.term_crit_calc()
@@ -329,18 +266,13 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                             _expected_dir = 'up' if self.station_longitudes[self.stns_event[0].name] > self.station_longitudes[self.stns_event[1].name] else 'dn'
                             assert self.blsec_t.dir_mvmt[0:2] == _expected_dir or self.blsec_t.dir_mvmt[0:3] == 'mid', f'direction mismatch: train {next_event_tr_id} departing {self.stns_event[0].name}->{self.stns_event[1].name} (expected dir {_expected_dir!r}) about to occupy {self.blsec_t.name} (dir_mvmt={self.blsec_t.dir_mvmt!r})'
                             self.blsec_t.train_occ_start(t, t + t_blsec_occ_end, next_event_tr_id)
-                            print('\n block section ', self.blsec_t.name, ' will be occupied by train ', self.next_event_train, ' until ', new_arrival_time)
                             self.stns_event[0].set_occ_conn_out(next_event_conn, self.tr_next_event.train_id, 1)
-                            print('\n train ', self.next_event_train, 'departing station ', self.stns_event[0].name, ' from connection ', next_event_conn)
                             self.stns_event[0].set_occupancy_dep(self.stn_line_occ_name, t)
-                            print('\n station line ', self.stn_line_occ_name, 'at station ', self.stns_event[0].name, 'will be free starting at t = ', t)
                             self.tr_sched_updt(t, next_event_type)
                             self.sched_act[next_event_tr_id][t_ind] = pd.Timestamp('2100-06-01 22:52:00')
                             t_index = t_ind
                             dep_list = [next_event_tr_id, self.next_event_train, self.tr_next_event.tr_type, t_index, t, self.sched_act[next_event_tr_id][t_ind + 2]]
                             self.blsec_t.queue_remove(dep_list)
-                            print('\n block section ', self.blsec_t.name, 'queue status: ', self.blsec_t.blsec_queue)
-                            print('current train sched is ', self.sched_act[next_event_tr_id])
                             self.total_schedule[next_event_tr_id]['simulated'].append([t])
                     else:
                         speed_rand = self.new_arr_by_speed_randomness(next_event_tr_id, t_ind)
@@ -355,7 +287,6 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                                     q_tr_id.append([self.blsec_t.blsec_queue[v], self.blsec_t.blsec_queue[v + 3]])
                                 v += 6
                             self.blsec_t.queue_updt(time_inc)
-                            print('list of train schedules from queue to be updated due to speed randomness: ', q_tr_id)
                             for k, t_ind_q in q_tr_id:
                                 self.sched_updt(self.sched_act[k][t_ind_q] + time_inc, t_ind_q, k)
                                 train_name = k[:k.index('_')]
@@ -364,35 +295,22 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                                 if stn_line_stn0 is not None:
                                     updt_dep_time = self.stns_event[1].tracks[stn_line_stn0][3] + time_inc
                                     self.stns_event[1].set_occupancy_updt(stn_line_stn0, updt_dep_time)
-                                    print(f'[queue update] train {train_name} at {self.stns_event[1].name}, stn line {stn_line_stn0}, updated occ_end to {updt_dep_time}')
                                 elif stn_line_stn1 is not None:
                                     updt_dep_time = self.stns_event[0].tracks[stn_line_stn1][3] + time_inc
                                     self.stns_event[0].set_occupancy_updt(stn_line_stn1, updt_dep_time)
-                                    print(f'[queue update] train {train_name} at {self.stns_event[0].name}, stn line {stn_line_stn1}, updated occ_end to {updt_dep_time}')
-                                else:
-                                    print(f'[queue update] train {train_name} not found at either station, skipping station line update')
-                            print('updated block section queue status due to speed randomness: ', self.blsec_t.blsec_queue)
                         self.sched_updt(new_arrival_time, t_ind + 2, next_event_tr_id)
-                        print('new arrival time is ', new_arrival_time)
-                        print('after schedule update for arrival time, schedule is ', self.sched_act[next_event_tr_id])
                         t_blsec_occ_end = new_arrival_time - t
                         self.t_max = self.term_crit_calc()
                         _expected_dir = 'up' if self.station_longitudes[self.stns_event[0].name] > self.station_longitudes[self.stns_event[1].name] else 'dn'
                         assert self.blsec_t.dir_mvmt[0:2] == _expected_dir or self.blsec_t.dir_mvmt[0:3] == 'mid', f'direction mismatch: train {next_event_tr_id} departing {self.stns_event[0].name}->{self.stns_event[1].name} (expected dir {_expected_dir!r}) about to occupy {self.blsec_t.name} (dir_mvmt={self.blsec_t.dir_mvmt!r})'
                         self.blsec_t.train_occ_start(t, t + t_blsec_occ_end, next_event_tr_id)
-                        print('\n block section ', self.blsec_t.name, ' will be occupied by train ', self.next_event_train, ' until ', t + t_blsec_occ_end)
                         self.stns_event[0].set_occ_conn_out(next_event_conn, self.tr_next_event.train_id, 1)
-                        print('\n train ', self.next_event_train, 'departing station ', self.stns_event[0].name, ' from connection ', next_event_conn)
-                        print(self.stns_event[0].tracks[self.stn_line_occ_name][0] if self.stn_line_occ_name in self.stns_event[0].tracks else 'N/A (train has no station track)')
                         self.stns_event[0].set_occupancy_dep(self.stn_line_occ_name, t)
-                        print('\n station line ', self.stn_line_occ_name, 'at station ', self.stns_event[0].name, 'will be free starting at t = ', t)
-                        print(self.stns_event[0].tracks[self.stn_line_occ_name][0] if self.stn_line_occ_name in self.stns_event[0].tracks else 'N/A (train has no station track)')
                         self.tr_sched_updt(t, next_event_type)
                         self.sched_act[next_event_tr_id][t_ind] = pd.Timestamp('2100-06-01 22:52:00')
                         t_index = t_ind
                         dep_list = [next_event_tr_id, self.next_event_train, self.tr_next_event.tr_type, t_index, t, self.sched_act[next_event_tr_id][t_ind + 2]]
                         self.blsec_t.queue_remove(dep_list)
-                        print('\n block section ', self.blsec_t.name, 'queue status: ', self.blsec_t.blsec_queue)
                         self.total_schedule[next_event_tr_id]['simulated'].append([t])
                 elif check_if_auto:
                     self.blsec_t.process_autoblock_departure(
@@ -412,14 +330,9 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                         q_idx = self.blsec_t.blsec_queue.index(next_event_tr_id)
                         self.blsec_t.blsec_queue[q_idx + 4] = new_halt_end
                         self.blsec_t.blsec_queue[q_idx + 5] = self.sched_act[next_event_tr_id][t_ind + 2]
-                        print('refreshed stale queue entry for', next_event_tr_id, 'in', self.blsec_t.name)
-                    print('after updating train shced ', self.sched_act[next_event_tr_id])
                 else:
-                    print('\n Third case when blocksection is not free \n ')
-                    print('before adding or updating queue; queue status is ', self.blsec_t.blsec_queue)
                     if self.blsec_t.occ_ind == 1 and len(self.blsec_t.blsec_queue) < 6:
                         t_dep_updt = self.blsec_t.occ_end + pd.Timedelta(minutes=1)
-                        print(t_dep_updt)
                     elif next_event_tr_id not in self.blsec_t.blsec_queue:
                         last_queued_occ_end = self.blsec_t.blsec_queue[-1]
                         t_dep_updt = max(last_queued_occ_end + pd.Timedelta(minutes=1), self.blsec_t.occ_end + pd.Timedelta(minutes=1))
@@ -427,24 +340,12 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                         t_dep_updt = self.blsec_t.occ_end + pd.Timedelta(minutes=1)
                     if t_dep_updt <= t:
                         t_dep_updt = t + pd.Timedelta(minutes=1)
-                    print('\n block section ', self.blsec_t.name, ' is not free at t = ', t)
-                    print('\n block section currently occupied by ', self.blsec_t.occ_train)
-                    print('\n current block section is ', self.blsec_t.name)
-                    base = '_'.join(self.blsec_t.name.split('_')[:-1])
-                    for suffix in ('up1', 'dn1'):
-                        sib_name = f'{base}_{suffix}'
-                        sib = self.blsec_lookup.get(sib_name)
-                        if sib is not None:
-                            print(sib.name, '| occ_train:', sib.occ_train, '| occ_end:', sib.occ_end)
-                    print('\n block section ', self.blsec_t.name, ' will become free for ', next_event_tr_id, ' at t = ', t_dep_updt - pd.Timedelta(minutes=1))
                     self.stns_event[0].set_occupancy_updt(self.stn_line_occ_name, t_dep_updt)
                     self.sched_updt(t_dep_updt, t_ind, next_event_tr_id)
-                    print('current train sched is ', self.sched_act[next_event_tr_id])
                     blsec_occ_end = self.sched_act[next_event_tr_id][t_ind + 2]
                     if next_event_tr_id not in self.blsec_t.blsec_queue:
                         t_index = t_ind
                         self.blsec_t.queue_add(next_event_tr_id, self.next_event_train, self.tr_next_event.tr_type, t_index, t_dep_updt, blsec_occ_end)
-                        print('After queue_add:', self.blsec_t.name, '  ', self.blsec_t.blsec_queue)
                         self.blsec_t.update_queue_priority(self.tr_next_event.tr_type, next_event_tr_id, self.sched_updt, self.stns_event[0], self.stns_event[1], self.get_train_stnline_for_departure_delay, self.get_train_stnline_for_arrival_delay)
                         i = 0
                         while i < len(self.blsec_t.blsec_queue):
@@ -453,10 +354,7 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                                 self.stns_event[0].set_occupancy_updt(stn_line, self.blsec_t.blsec_queue[i + 4])
                             self.sched_updt(self.blsec_t.blsec_queue[i + 4], self.blsec_t.blsec_queue[i + 3], self.blsec_t.blsec_queue[i])
                             i += 6
-                        print('\n after update_queue_priority:', self.blsec_t.name, '  ', self.blsec_t.blsec_queue)
-                        print('\n given blsec_t occ_end is ', self.blsec_t.occ_end)
                     else:
-                        print('time diff is', t_dep_updt - t)
                         self.blsec_t.queue_updt(t_dep_updt - t)
                         q_len = len(self.blsec_t.blsec_queue)
                         q_tr_id = []
@@ -465,30 +363,15 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                             if self.blsec_t.blsec_queue[v] in self.sched_act:
                                 q_tr_id.append([self.blsec_t.blsec_queue[v], self.blsec_t.blsec_queue[v + 3]])
                             v += 6
-                        print('\n list of train schedules from queue to be updated: ', q_tr_id)
                         for k in q_tr_id:
                             train_name = k[0][:k[0].index('_')]
                             tr_index = k[1]
-                            print('index number is ', tr_index)
-                            print('next evetn train id is ', next_event_tr_id)
-                            print('current train id is ', k[0])
                             stn_line = self.get_train_stnline_for_departure_delay(self.stns_event, train_name)
-                            print('train no is ', train_name, 'and its station line is ', stn_line)
-                            print('train id is ', k[0])
-                            train_id = k[0]
-                            print('train schedule before updation is ', self.sched_act[train_id])
                             if stn_line is not None:
                                 updt_dep_time = self.stns_event[0].tracks[stn_line][3] + (t_dep_updt - t)
-                                print('updt dept time for a given train is ', updt_dep_time)
                                 self.stns_event[0].set_occupancy_updt(stn_line, updt_dep_time)
                                 self.sched_updt(updt_dep_time, tr_index, k[0])
-                            else:
-                                print('train', train_name, 'not at any station track, skipping station occupancy update')
-                    print('t_dep_updt is', self.sched_act[next_event_tr_id][t_ind])
-                    print('\n station line occupied by the given train is ', self.stns_event[0].tracks.get(self.stn_line_occ_name, 'N/A (train has no station track)'))
                     self.t_max = self.term_crit_calc()
-                    print('\n updated time at which simulation terminates: ', self.t_max)
-                    print('\n block section ', self.blsec_t.name, 'queue status: ', self.blsec_t.blsec_queue)
 
     def run(self):
         if self.USE_EVENT_MANAGER:
@@ -507,7 +390,6 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                 self.t, self.next_event_type, self.next_event_tr_id = popped
                 self.next_event_train = self.next_event_tr_id[:self.next_event_tr_id.index('_')]
                 print('\n -------------------t = ', self.t, '-------------------------')
-                print('\n [event manager] next event: ', self.next_event_type, self.next_event_tr_id)
             else:
                 event_list = self.build_event_list()
                 next_event_time = min([i for i in event_list if isinstance(i, str) == False and i < pd.Timestamp('2100-06-01 22:50:00')])
@@ -517,8 +399,6 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                 self.next_event_tr_id = event_list[_event_idx + 2]
                 self.t = next_event_time
                 print('\n -------------------t = ', self.t, '-------------------------')
-                print('\n event list at t = ', self.t, ' ', event_list)
-                print('\n next event type is ', self.next_event_type)
             self.tr_next_event = self.trains_by_instance_id[self.next_event_tr_id]
             self.stns_event = self.get_station_event(self.t, self.next_event_tr_id, self.next_event_type, self.stations_list)
             if self.next_event_type == 'd':
@@ -530,14 +410,6 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                 self.blsec_t = self.blsec_id(self.stns_event[1].name, self.stns_event[0].name)
             else:
                 self.blsec_t = None
-            if self.blsec_t is not None:
-                print('\n current block section is ', self.blsec_t.name)
-                base = '_'.join(self.blsec_t.name.split('_')[:-1])
-                for suffix in ('up1', 'dn1'):
-                    sib_name = f'{base}_{suffix}'
-                    sib = self.blsec_lookup.get(sib_name)
-                    if sib is not None:
-                        print(sib.name, '| occ_train:', sib.occ_train, '| occ_end:', sib.occ_end)
             if self.USE_EVENT_MANAGER:
                 # Every sched_updt() call site in resource_update_event() (and in
                 # BlockSection.update_queue_priority(), the one other place that calls
@@ -557,15 +429,7 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
             if self.USE_EVENT_MANAGER:
                 for tr_id in refresh_candidates:
                     self._event_manager.notify_updated(tr_id)
-        print('whole train schedule is ', self.next_event_tr_id, self.tr_next_event.tr_sched_act)
-        print('whole sched is really ', self.sched_act[self.next_event_tr_id])
         print('\n ----------------simulation has ended-------------------------')
-        for idx, j in enumerate(self.trains, start=1):
-            print(f'Train serial number: {idx}')
-            print('\n planned schedule for train', j.train_id, 'is: \n', j.tr_schedule)
-            print('\n schedule operated for train', j.train_id, 'is: \n', j.tr_sched_act)
-            print('\n train performance statistics: \n', j.calc_tr_stats())
-            print('\n ---------------------next train--------------------------')
         rows = []
         max_len = 0
         for train_id, data in self.total_schedule.items():
