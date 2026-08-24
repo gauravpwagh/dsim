@@ -33,7 +33,11 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
             print('\n event at time t = ', t, ' is arrival of train ', self.next_event_train, ' at station', self.stns_event[0].name)
             t_end = self.sched_act[next_event_tr_id][t_ind + 1]
             print('\n scheduled station halt end time is: ', t_end)
-            stn_line = self.stn_line_assign(t_ind, next_event_tr_id, len_sched)
+            prev_station = self.stns_event[1] if len(self.stns_event) > 1 else None
+            stn_line = self.stns_event[0].assign_line(
+                self.tr_next_event, t_ind, next_event_tr_id, len_sched, self.sched_act,
+                self.blsec_t, prev_station, self.blsec_id, self.conn_exists,
+            )
             print('\n station line assignment information: ', stn_line)
             stn_line_occ_flag = stn_line[0]
             if stn_line_occ_flag == 0:

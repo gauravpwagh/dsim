@@ -100,7 +100,13 @@ lines (`dn1`/`up1`/`mid1`/`mid2`):
    over a shared `mid` one; if none are free, picks whichever becomes free earliest
    (`get_queue_end_time`).
 
-## Station line / platform assignment — `stn_line_assign(...)`
+## Station line / platform assignment — `Station.assign_line(...)`
+
+> As of docs/event-manager-design.md stage 2, this logic lives on `Station`
+> (`src/iidsim/domain/station.py`), not the engine -- `resolve.py`'s old
+> `stn_line_assign` called into `self.stns_event[0].tracks` from outside; now the
+> station decides for itself, given the context (train, block section, schedule
+> lookups) the engine hands it.
 
 Chooses which station line (platform or loop) a train uses at a given stop, by walking
 that station's free tracks and checking whether each candidate line actually connects to

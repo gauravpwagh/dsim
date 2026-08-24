@@ -85,7 +85,7 @@ def build_platform_fallback_scenario():
     """Five halting passenger trains converging on scmn, which has only 4 platformed
     lines (s8-s11) and several platformless ones (s1-s7, s12). With overlapping dwell
     windows, the platformed lines should be exhausted, forcing at least one train onto a
-    platformless line via stn_line_assign's relaxed fallback pass.
+    platformless line via Station.assign_line's relaxed fallback pass.
     """
     trains = []
     for i in range(5):

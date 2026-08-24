@@ -1,7 +1,7 @@
 # EventManager & domain-object redesign — design doc
 
-> **Status: stages 0 and 1 implemented, verified, and default.** Stage 1 shipped scoped
-> down from its original description -- see the note under [section 6](#6-staged-migration-plan).
+> **Status: stages 0, 1, and 2 implemented and verified.** Stage 1 shipped scoped down
+> from its original description -- see the note under [section 6](#6-staged-migration-plan).
 > See [restructure-notes.md](restructure-notes.md) for the engine split this builds on,
 > and [efficiency-review.md](efficiency-review.md) for the event-selection cost this was
 > originally motivated by.
@@ -16,7 +16,15 @@
 > too: identical `total_schedule` both before and after stage 1. Wall-clock on that run:
 > 69.3-69.5s (old) -> 51.0s (stage 0) -> 49.8s (stage 0+1) -- stage 1's cache adds only a
 > modest win here since its benefit scales with schedule length per train, and 2 days
-> isn't long enough to show it dramatically. Stages 2-4 are still just proposed.
+> isn't long enough to show it dramatically.
+>
+> Stage 2 (`Station.assign_line`) was verified differently, since it's a pure code move
+> with no runtime-selectable "old path" the way stage 0 has: stashed the stage-2 diff,
+> ran all 6 scenarios (4 synthetic + both real corridors) against the pre-stage-2 code,
+> unstashed, ran them again, and compared `total_schedule` pickle-for-pickle -- identical
+> across every scenario, including the platform-fallback one specifically built to hit
+> the relaxed-fallback branch. The old `stn_line_assign` was then deleted from
+> `resolve.py` (dead code, zero remaining callers). Stages 3-4 are still just proposed.
 
 ## 1. Motivation
 
@@ -46,9 +54,13 @@ attempting any of (2).
 
 ## 2. Current ownership, precisely
 
+*(As of before stage 2 -- `Station` now owns line assignment; row kept as originally
+written since it's what motivated the change. See the stage-2 row in section 6 for the
+actual `Station.assign_line()` signature.)*
+
 | Object | File | Owns (state) | Reaches in from outside for (behavior) |
 |---|---|---|---|
-| `Station` (`DynamicStation`) | `domain/station.py` | `tracks`, `connections` | Which line to assign (`stn_line_assign`, `resolve.py:317`), platform fallback |
+| `Station` (`DynamicStation`) | `domain/station.py` | `tracks`, `connections` | ~~Which line to assign (`stn_line_assign`, `resolve.py:317`)~~ **now owns this (stage 2)** |
 | `BlockSection` (`block_sec`) | `domain/block_section.py` | `blsec_queue`, `autoblsec_list`, `occ_ind` | Priority ordering (`update_blsec_queue_priority`, `priority.py:151`), single/double-line resolution, sibling redirect (`find_free_sibling_blsec`, `resolve.py:194`) |
 | `Train` | `domain/train.py` | `tr_schedule`, `tr_sched_act`, `calc_tr_stats()` | Its own "what's next" -- that's tracked separately, in `Simulation.sched_act[train_id]`, a flat list the train doesn't own |
 
@@ -191,7 +203,7 @@ comprehension-scope `t`-clobbering bug during the original engine split
 |---|---|---|---|
 | **0** | **Done, default.** `EventManager` + heap; `resource_update_event()` untouched (black box) | Low -- pure event-selection swap, no decision logic touched | Verified: `tests/test_event_manager.py` (4 scenarios incl. tie-break, all pass) + manual `sprd_vzm`/`krdl_ktv` diffs (identical `total_schedule`, golden Excel still matches) |
 | **1** | **Done, scoped down from the original description below.** An O(1) `pop_next()` staleness-check cache inside `EventManager` (`self._current[tr_id]`, kept in sync by the same `notify_updated()` call stage 0 already makes) -- delivers the section-5 scalability goal (decoupling event selection from schedule/horizon length) without moving `sched_act` ownership. ~~`Train.next_pending_event()` / `advance_to()` replacing external `sched_act` list mutation~~ turned out **not** to be low-risk on inspection: `sched_act` is read/written directly in `events.py`, `priority.py`, `randomness.py`, `resolve.py`, *and* `run.py` (verified by grep) -- moving its ownership means touching the same "black box" content stage 0 was built specifically to avoid. Deferred; see the note below the table. | Low, as actually scoped -- self-contained inside `EventManager`, no other file touched | Same diff suite as stage 0 (unchanged, since it already covers both multi-day real corridors) -- all still pass; `krdl_ktv` re-checked manually: identical `total_schedule`, 51.0s -> 49.8s (modest, as expected -- the benefit scales with horizon length and 2 days isn't long enough to show much) |
-| **2** | `Station.assign_line()` / `release_line()` absorb `stn_line_assign` | Medium -- not flagged as one of the fragile workaround areas, but touches platform-fallback logic | Diff suite + re-run `test_platform_assignment_fallback` (already covers this exact branch) |
+| **2** | **Done.** `Station.assign_line()` absorbs `stn_line_assign`, translated line-for-line (implicit `self.X` reads became explicit params: `train`, `blsec_t`, `prev_station`, `sched_act`, plus `blsec_id`/`conn_exists` injected as callables since those need network-wide lookups this class doesn't own). No `release_line()` needed -- `set_occupancy_dep()` already existed on `Station` and already was the release path. | Medium, as expected | Stashed/unstashed before-after `total_schedule` diff across 6 scenarios (all match) + full pytest suite (9/9 pass, including `test_platform_assignment_fallback`) |
 | **3** | `BlockSection.request_entry()` / `release()` absorb queue priority, single/double-line resolution, autoblock sequencing | **High** -- this is precisely the "intricate, comment-documented workaround" code flagged throughout this project's history | Diff suite + `test_autoblock_headway_sequencing` + `test_goods_starvation_override` must pass before *and* after; new tests for any branch not yet covered |
 | **4** | Attempt sibling-redirect coverage (`find_free_sibling_blsec`), now unit-testable against a bare `BlockSection` with a synthetic queue instead of needing a full-network timing coincidence | Exploratory -- may or may not close the gap; not a prerequisite for stages 0-3 | New unit tests only; this is additive, not a behavior change |
 

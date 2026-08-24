@@ -61,6 +61,89 @@ def create_station_class(station_name, longitude, station_config):
                 return track_name + ' is occupied'
             return track_name + ' is not occupied'
 
+        def assign_line(self, train, t_ind, next_event_tr_id, len_sched, sched_act, blsec_t, prev_station, blsec_id_fn, conn_exists_fn):
+            """Which of this station's tracks (if any) a just-arrived train should occupy,
+            and the connection key(s) linking it to the block section on either side.
+
+            Stage 2 of docs/event-manager-design.md -- absorbs
+            iidsim.engine.resolve.ResolveMixin.stn_line_assign, translated line-for-line
+            (not redesigned) to minimize the risk of a subtle behavior change: every
+            `self.X` read in the original became an explicit parameter here (`self` in
+            the original was always `self.stns_event[0]`, i.e. this station). blsec_id_fn
+            / conn_exists_fn are the Simulation's own blsec_id/conn_exists bound methods,
+            passed in rather than duplicated here since they need the network-wide
+            block-section lookup this class deliberately doesn't own.
+
+            Returns [occ_flag, line_name, conn1, conn2] -- same shape as before.
+            """
+            stn_line_occ_flag = 0
+            stn_line_occ_name = ''
+            next_event_conn1 = ''
+            next_event_conn2 = ''
+            stn1 = ''
+            stn2 = self.name
+            stn3 = ''
+            print('stns_events list is ', [self.name] + ([prev_station.name] if prev_station is not None else []))
+            if t_ind > 1:
+                if t_ind != len_sched - 2:
+                    stn1 = prev_station.name
+                    stn3 = sched_act[next_event_tr_id][t_ind + 2]
+                    print('stn1, stn2 and stn3 before finding the blsec is ', stn1, stn2, stn3)
+                    out_blsec_dir = blsec_id_fn(stn2, stn3).dir_mvmt
+                    print('next blsec outgoing direction is ', out_blsec_dir)
+                else:
+                    stn1 = sched_act[next_event_tr_id][t_ind - 4]
+                arrived_dir = blsec_t.dir_mvmt
+                print('train arrived blocksection direction is ', arrived_dir)
+            else:
+                stn3 = sched_act[next_event_tr_id][t_ind + 2]
+                out_blsec_dir = blsec_id_fn(stn2, stn3).dir_mvmt
+                print('outgoing connection direction is ', out_blsec_dir)
+            tracks = self.tracks
+            if train.tr_type == 'g':
+                track_order = sorted(tracks.keys(), key=lambda j: tracks[j][1] != 0)
+            else:
+                track_order = list(tracks.keys())
+            arrival_time = train.tr_sched_act[self.name][0]
+            departure_time = train.tr_sched_act[self.name][1]
+            same_arr_dep = arrival_time == departure_time
+            halting_passenger = train.tr_type == 'p' and (not same_arr_dep)
+            total_passes = 2 if halting_passenger else 1
+            for pass_no in range(total_passes):
+                for j in track_order:
+                    print('\n station line under consideration: ', j, self.tracks[j][0])
+                    if self.tracks[j][0] != 0:
+                        continue
+                    if pass_no == 0 and halting_passenger and (self.tracks[j][1] == 0):
+                        continue
+                    print('\n current stn line is free')
+                    if t_ind > 1:
+                        print('current blocksection is ', blsec_t.name)
+                        c1 = blsec_t.name + '_' + str(j)
+                        if c1 not in self.connections:
+                            c1 = None
+                        print('incoming connection c1 connection is ', c1)
+                        if t_ind != len_sched - 2:
+                            c2 = conn_exists_fn(self, stn2, stn3, out_blsec_dir, j)
+                            print('out going connection is ', c2)
+                            if c1 and c2:
+                                next_event_conn1, next_event_conn2 = (c1, c2)
+                            else:
+                                next_event_conn1 = next_event_conn2 = ''
+                        else:
+                            next_event_conn1 = c1 if c1 else ''
+                            next_event_conn2 = ''
+                    else:
+                        c1 = conn_exists_fn(self, stn2, stn3, out_blsec_dir, j)
+                        next_event_conn1 = c1 if c1 else ''
+                        next_event_conn2 = ''
+                    print('\n next_event_conn1 and next_event_conn2 after connection check: ', next_event_conn1, next_event_conn2)
+                    if next_event_conn1 != '':
+                        stn_line_occ_flag = 1
+                        stn_line_occ_name = j
+                        return [stn_line_occ_flag, stn_line_occ_name, next_event_conn1, next_event_conn2]
+            return [stn_line_occ_flag, stn_line_occ_name, next_event_conn1, next_event_conn2]
+
     return DynamicStation()
 
 

@@ -314,74 +314,10 @@ class ResolveMixin:
                 return x.name
         return None
 
-    def stn_line_assign(self, t_ind, next_event_tr_id, len_sched):
-        stn_line_occ_flag = 0
-        stn_line_occ_name = ''
-        next_event_conn1 = ''
-        next_event_conn2 = ''
-        stn1 = ''
-        stn2 = self.stns_event[0].name
-        stn3 = ''
-        print('stns_events list is ', [s.name for s in self.stns_event])
-        if t_ind > 1:
-            if t_ind != len_sched - 2:
-                stn1 = self.stns_event[1].name
-                stn3 = self.sched_act[next_event_tr_id][t_ind + 2]
-                print('stn1, stn2 and stn3 before finding the blsec is ', stn1, stn2, stn3)
-                out_blsec_dir = self.blsec_id(stn2, stn3).dir_mvmt
-                print('next blsec outgoing direction is ', out_blsec_dir)
-            else:
-                stn1 = self.sched_act[next_event_tr_id][t_ind - 4]
-            arrived_dir = self.blsec_t.dir_mvmt
-            print('train arrived blocksection direction is ', arrived_dir)
-        else:
-            stn3 = self.sched_act[next_event_tr_id][t_ind + 2]
-            out_blsec_dir = self.blsec_id(stn2, stn3).dir_mvmt
-            print('outgoing connection direction is ', out_blsec_dir)
-        tracks = self.stns_event[0].tracks
-        if self.tr_next_event.tr_type == 'g':
-            track_order = sorted(tracks.keys(), key=lambda j: tracks[j][1] != 0)
-        else:
-            track_order = list(tracks.keys())
-        arrival_time = self.tr_next_event.tr_sched_act[self.stns_event[0].name][0]
-        departure_time = self.tr_next_event.tr_sched_act[self.stns_event[0].name][1]
-        same_arr_dep = arrival_time == departure_time
-        halting_passenger = self.tr_next_event.tr_type == 'p' and (not same_arr_dep)
-        total_passes = 2 if halting_passenger else 1
-        for pass_no in range(total_passes):
-            for j in track_order:
-                print('\n station line under consideration: ', j, self.stns_event[0].tracks[j][0])
-                if self.stns_event[0].tracks[j][0] != 0:
-                    continue
-                if pass_no == 0 and halting_passenger and (self.stns_event[0].tracks[j][1] == 0):
-                    continue
-                print('\n current stn line is free')
-                if t_ind > 1:
-                    print('current blocksection is ', self.blsec_t.name)
-                    c1 = self.blsec_t.name + '_' + str(j)
-                    if c1 not in self.stns_event[0].connections:
-                        c1 = None
-                    print('incoming connection c1 connection is ', c1)
-                    if t_ind != len_sched - 2:
-                        c2 = self.conn_exists(self.stns_event[0], stn2, stn3, out_blsec_dir, j)
-                        print('out going connection is ', c2)
-                        if c1 and c2:
-                            next_event_conn1, next_event_conn2 = (c1, c2)
-                        else:
-                            next_event_conn1 = next_event_conn2 = ''
-                    else:
-                        next_event_conn1 = c1 if c1 else ''
-                        next_event_conn2 = ''
-                else:
-                    c1 = self.conn_exists(self.stns_event[0], stn2, stn3, out_blsec_dir, j)
-                    next_event_conn1 = c1 if c1 else ''
-                    next_event_conn2 = ''
-                print('\n next_event_conn1 and next_event_conn2 after connection check: ', next_event_conn1, next_event_conn2)
-                if next_event_conn1 != '':
-                    stn_line_occ_flag = 1
-                    stn_line_occ_name = j
-                    return [stn_line_occ_flag, stn_line_occ_name, next_event_conn1, next_event_conn2]
-        return [stn_line_occ_flag, stn_line_occ_name, next_event_conn1, next_event_conn2]
+    # stn_line_assign was here -- moved to Station.assign_line (domain/station.py) as
+    # part of docs/event-manager-design.md stage 2. See that method's docstring for the
+    # translation notes; verified via a before/after total_schedule diff across 6
+    # scenarios (git history has the original if it's ever needed for reference).
 
     def train_direction(self, t, current_stn):
         stns = list(t.tr_sched_act.keys())
