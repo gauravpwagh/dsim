@@ -28,6 +28,7 @@ This documentation is split into focused files:
 | [outputs.md](outputs.md) | The charting and data-extraction helpers, and what lands in `output_files_*` (`iidsim.reporting`) |
 | [restructure-notes.md](restructure-notes.md) | Old-path -> new-path mapping, how the restructure was verified, and what was deliberately deferred |
 | [efficiency-review.md](efficiency-review.md) | Compute/time/memory findings — what was fixed and verified, and what's recommended but deferred |
+| [event-manager-design.md](event-manager-design.md) | Proposed (not started): a heap-based `EventManager` and giving `Station`/`BlockSection`/`Train` their own decision logic — scalability analysis and staged migration plan |
 
 ## Big picture
 
