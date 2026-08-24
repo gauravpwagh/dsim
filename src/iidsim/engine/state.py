@@ -15,7 +15,13 @@ from iidsim.data import geography, halt_deviation, timing
 
 class SimulationState:
 
-    def __init__(self, corridor_dataset, network_section, *, trains_override=None, output_dir='output_files', start_dt_mode='planned', start_dt_manual=None, start_dt_buffer_minutes=10, chart_duration_hrs=23, headway_distance=3.6, goods_max_priority_wait_hours=20, autoblock_stations=('alm', 'kuk', 'vzm'), use_halt_deviation=True, use_speed_randomness=True, halt_deviation_seed=1234, speed_randomness_seed=1234):
+    def __init__(self, corridor_dataset, network_section, *, trains_override=None, output_dir='output_files', start_dt_mode='planned', start_dt_manual=None, start_dt_buffer_minutes=10, chart_duration_hrs=23, headway_distance=3.6, goods_max_priority_wait_hours=20, autoblock_stations=('alm', 'kuk', 'vzm'), use_halt_deviation=True, use_speed_randomness=True, halt_deviation_seed=1234, speed_randomness_seed=1234, use_event_manager=True):
+        # use_event_manager: the heap-based event selection from
+        # docs/event-manager-design.md (stage 0), default since it was verified to
+        # reproduce build_event_list()'s output exactly (tests/test_event_manager.py)
+        # while running measurably faster. Pass False to fall back to the original
+        # build_event_list() + linear min-scan path.
+        self.USE_EVENT_MANAGER = use_event_manager
         self.chart_duration_hrs = chart_duration_hrs
         self.headway_distance = headway_distance
         self.autoblock_stations = autoblock_stations

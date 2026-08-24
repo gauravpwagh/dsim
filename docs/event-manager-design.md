@@ -1,9 +1,20 @@
 # EventManager & domain-object redesign — design doc
 
-> **Status: proposed, not started.** No code has moved. This documents a plan discussed and
-> agreed in principle; see [restructure-notes.md](restructure-notes.md) for the engine split
-> this builds on, and [efficiency-review.md](efficiency-review.md) for the event-selection
-> cost this was originally motivated by.
+> **Status: stage 0 implemented, verified, and now the default.** See
+> [restructure-notes.md](restructure-notes.md) for the engine split this builds on, and
+> [efficiency-review.md](efficiency-review.md) for the event-selection cost this was
+> originally motivated by.
+>
+> `src/iidsim/engine/event_manager.py`. `run_simulation(..., use_event_manager=False)`
+> falls back to the original `build_event_list()` path if ever needed.
+> Verified via `tests/test_event_manager.py`: byte-identical `total_schedule` against the
+> existing `build_event_list()` path across the three synthetic branch-coverage scenarios,
+> a new tie-break scenario (two trains sharing an identical origin timestamp), and
+> `p_g_sprd_vzm_2days` with randomness on (also re-checked against the existing golden
+> Excel file). Manually verified against `p_g_krdl_ktv_2days` (52 trains) too: identical
+> `total_schedule`, and -- with `resource_update_event()` completely untouched --
+> wall-clock dropped from 69.5s to 51.0s (~27% faster) on that run alone. Stages 1-4 are
+> still just proposed.
 
 ## 1. Motivation
 
@@ -109,10 +120,12 @@ Replace `build_event_list()` + linear min-scan with a `heapq`-based min-heap hol
   cost one extra O(log n) pop-and-discard each -- never wrong results.
 
 **Expected payoff** (event selection only, largest corridor): current approach ~2x10^8
-comparisons total; heap approach ~10^6. See prior conversation for the full worked
-comparison table. This does *not* speed up `resource_update_event()` itself -- if profiling
-shows that function dominates runtime rather than event selection, this stage helps less
-than the numbers suggest. **Profile before committing to the full plan.**
+comparisons total; heap approach ~10^6. **Measured** (`p_g_krdl_ktv_2days`, 52 trains):
+69.5s -> 51.0s wall-clock, ~27% faster, with `resource_update_event()` completely
+untouched -- so event selection was already a meaningfully larger share of runtime than
+the "profile first" caveat below assumed. This does *not* speed up `resource_update_event()`
+itself -- if that function dominates runtime on an even larger corridor, this stage helps
+less than 27%. **Profile before committing to the full plan** (stages 1-4).
 
 ## 5. Scalability
 
@@ -174,7 +187,7 @@ comprehension-scope `t`-clobbering bug during the original engine split
 
 | Stage | Change | Risk | Verification |
 |---|---|---|---|
-| **0** | `EventManager` + heap; `resource_update_event()` untouched (black box) | Low -- pure event-selection swap, no decision logic touched | Full output diff (Excel/animator JSON) across `sprd_vzm`, `krdl_ktv`, a scenario with two trains at an identical timestamp (tie-break check) |
+| **0** | **Done, opt-in.** `EventManager` + heap; `resource_update_event()` untouched (black box) | Low -- pure event-selection swap, no decision logic touched | Verified: `tests/test_event_manager.py` (4 scenarios incl. tie-break, all pass) + manual `sprd_vzm`/`krdl_ktv` diffs (identical `total_schedule`, golden Excel still matches) |
 | **1** | `Train.next_pending_event()` / `advance_to()` replace external `sched_act` list mutation. Includes an O(1) next-pending-time cache (dict, keyed by train id), updated inside `advance_to()` -- see [Scalability](#5-scalability) for why this decouples event selection from schedule/horizon length | Low -- data-ownership move, not a decision move | Same diff suite as stage 0, plus a long-horizon scenario (multi-day) to confirm the cache stays consistent with the underlying schedule |
 | **2** | `Station.assign_line()` / `release_line()` absorb `stn_line_assign` | Medium -- not flagged as one of the fragile workaround areas, but touches platform-fallback logic | Diff suite + re-run `test_platform_assignment_fallback` (already covers this exact branch) |
 | **3** | `BlockSection.request_entry()` / `release()` absorb queue priority, single/double-line resolution, autoblock sequencing | **High** -- this is precisely the "intricate, comment-documented workaround" code flagged throughout this project's history | Diff suite + `test_autoblock_headway_sequencing` + `test_goods_starvation_override` must pass before *and* after; new tests for any branch not yet covered |

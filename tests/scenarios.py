@@ -63,6 +63,24 @@ def build_starvation_scenario():
     return [goods] + passengers
 
 
+def build_tie_break_scenario():
+    """Two passenger trains sharing the exact same origin station AND origin
+    timestamp, so their very first event (arrival at origin) lands on the identical
+    simulated timestamp. Used to check that the heap-based EventManager
+    (docs/event-manager-design.md) reproduces the existing tie-break rule -- whichever
+    train is first in the input train list wins an exact-timestamp tie -- exactly.
+    """
+    t1 = train("T1", "p", {
+        "smlg": [BASE, BASE],
+        "kvls": [BASE + pd.Timedelta(minutes=20), BASE + pd.Timedelta(minutes=20)],
+    }, "smlg", "kvls", 80, 0)
+    t2 = train("T2", "p", {
+        "smlg": [BASE, BASE],
+        "kvls": [BASE + pd.Timedelta(minutes=22), BASE + pd.Timedelta(minutes=22)],
+    }, "smlg", "kvls", 80, 1)
+    return [t1, t2]
+
+
 def build_platform_fallback_scenario():
     """Five halting passenger trains converging on scmn, which has only 4 platformed
     lines (s8-s11) and several platformless ones (s1-s7, s12). With overlapping dwell

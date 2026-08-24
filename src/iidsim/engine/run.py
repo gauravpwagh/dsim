@@ -7,6 +7,7 @@ from iidsim.engine.resolve import ResolveMixin
 from iidsim.engine.priority import PriorityMixin
 from iidsim.engine.randomness import RandomnessMixin
 from iidsim.engine.events import EventsMixin
+from iidsim.engine.event_manager import EventManager
 import json
 # import time
 # import numpy as np
@@ -732,17 +733,34 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                     print('\n block section ', self.blsec_t.name, 'queue status: ', self.blsec_t.blsec_queue)
 
     def run(self):
+        if self.USE_EVENT_MANAGER:
+            train_ids = [f'{tr.train_id}_{tr.instance_index}' for tr in self.trains]
+            self._event_manager = EventManager(self.sched_act, train_ids)
+
         while self.t <= self.t_max and self.exec_sim == 0:
-            event_list = self.build_event_list()
-            next_event_time = min([i for i in event_list if isinstance(i, str) == False and i < pd.Timestamp('2100-06-01 22:50:00')])
-            _event_idx = event_list.index(next_event_time)
-            self.next_event_type = event_list[_event_idx + 1]
-            self.next_event_train = event_list[_event_idx - 1]
-            self.next_event_tr_id = event_list[_event_idx + 2]
-            self.t = next_event_time
-            print('\n -------------------t = ', self.t, '-------------------------')
-            print('\n event list at t = ', self.t, ' ', event_list)
-            print('\n next event type is ', self.next_event_type)
+            if self.USE_EVENT_MANAGER:
+                # See docs/event-manager-design.md (stage 0): heap-based selection
+                # instead of build_event_list() + a linear min-scan. Everything from
+                # here down -- station/block-section resolution, resource_update_event()
+                # itself -- is identical to the build_event_list() path below.
+                popped = self._event_manager.pop_next()
+                if popped is None:
+                    break
+                self.t, self.next_event_type, self.next_event_tr_id = popped
+                self.next_event_train = self.next_event_tr_id[:self.next_event_tr_id.index('_')]
+                print('\n -------------------t = ', self.t, '-------------------------')
+                print('\n [event manager] next event: ', self.next_event_type, self.next_event_tr_id)
+            else:
+                event_list = self.build_event_list()
+                next_event_time = min([i for i in event_list if isinstance(i, str) == False and i < pd.Timestamp('2100-06-01 22:50:00')])
+                _event_idx = event_list.index(next_event_time)
+                self.next_event_type = event_list[_event_idx + 1]
+                self.next_event_train = event_list[_event_idx - 1]
+                self.next_event_tr_id = event_list[_event_idx + 2]
+                self.t = next_event_time
+                print('\n -------------------t = ', self.t, '-------------------------')
+                print('\n event list at t = ', self.t, ' ', event_list)
+                print('\n next event type is ', self.next_event_type)
             self.tr_next_event = self.trains_by_instance_id[self.next_event_tr_id]
             self.stns_event = self.get_station_event(self.t, self.next_event_tr_id, self.next_event_type, self.stations_list)
             if self.next_event_type == 'd':
@@ -762,8 +780,24 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                     sib = self.blsec_lookup.get(sib_name)
                     if sib is not None:
                         print(sib.name, '| occ_train:', sib.occ_train, '| occ_end:', sib.occ_end)
+            if self.USE_EVENT_MANAGER:
+                # Every self.sched_updt() call site in resource_update_event() (and in
+                # update_blsec_queue_priority(), the one other place that calls it) only
+                # ever touches next_event_tr_id or a train already sitting in
+                # self.blsec_t's own queue/autoblock list -- verified exhaustively
+                # against every call site, not assumed. Snapshotting membership *before*
+                # the call matters: a train can be removed from the queue and have its
+                # schedule updated in the same event (the sibling-redirect branch does
+                # exactly this), so checking membership only *after* would miss it.
+                refresh_candidates = {self.next_event_tr_id}
+                if self.blsec_t is not None:
+                    refresh_candidates.update(self.blsec_t.blsec_queue[0::6])
+                    refresh_candidates.update(lst[0] for lst in self.blsec_t.autoblsec_list)
             self.resource_update_event(self.next_event_type, self.next_event_tr_id, self.t)
             self.t_max = self.term_crit_calc()
+            if self.USE_EVENT_MANAGER:
+                for tr_id in refresh_candidates:
+                    self._event_manager.notify_updated(tr_id)
         print('whole train schedule is ', self.next_event_tr_id, self.tr_next_event.tr_sched_act)
         print('whole sched is really ', self.sched_act[self.next_event_tr_id])
         print('\n ----------------simulation has ended-------------------------')
@@ -1085,6 +1119,7 @@ def run_simulation(
     use_speed_randomness=True,
     halt_deviation_seed=1234,
     speed_randomness_seed=1234,
+    use_event_manager=True,
 ):
     """Run one end-to-end simulation and write the Excel report, time-distance
     chart PDF, and animator JSON for `corridor_dataset` on `network_section`.
@@ -1097,6 +1132,11 @@ def run_simulation(
     trains_override: optional list[iidsim.domain.train] to simulate directly instead of
         loading `corridor_dataset` from iidsim.schedules -- for synthetic/targeted test
         scenarios built against the real network (see tests/scenarios.py).
+    use_event_manager: the heap-based event selection from
+        docs/event-manager-design.md (stage 0), default -- verified to reproduce
+        build_event_list()'s output exactly (tests/test_event_manager.py) while running
+        measurably faster. Pass False for the original build_event_list() + linear
+        min-scan path.
 
     Returns a dict with the three output file paths plus the in-memory
     total_schedule and trains the run produced.
@@ -1117,5 +1157,6 @@ def run_simulation(
         use_speed_randomness=use_speed_randomness,
         halt_deviation_seed=halt_deviation_seed,
         speed_randomness_seed=speed_randomness_seed,
+        use_event_manager=use_event_manager,
     )
     return sim.run()
