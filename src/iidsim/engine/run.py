@@ -608,7 +608,7 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                         t_index = t_ind
                         self.blsec_t.queue_add(next_event_tr_id, self.next_event_train, self.tr_next_event.tr_type, t_index, t_dep_updt, blsec_occ_end)
                         print('After queue_add:', self.blsec_t.name, '  ', self.blsec_t.blsec_queue)
-                        self.update_blsec_queue_priority(self.blsec_t, self.tr_next_event.tr_type, next_event_tr_id)
+                        self.blsec_t.update_queue_priority(self.tr_next_event.tr_type, next_event_tr_id, self.sched_updt, self.stns_event[0], self.stns_event[1], self.get_train_stnline_for_departure_delay, self.get_train_stnline_for_arrival_delay)
                         i = 0
                         while i < len(self.blsec_t.blsec_queue):
                             stn_line = self.get_train_stnline_for_departure_delay(self.stns_event, self.blsec_t.blsec_queue[i + 1])
@@ -616,7 +616,7 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                                 self.stns_event[0].set_occupancy_updt(stn_line, self.blsec_t.blsec_queue[i + 4])
                             self.sched_updt(self.blsec_t.blsec_queue[i + 4], self.blsec_t.blsec_queue[i + 3], self.blsec_t.blsec_queue[i])
                             i += 6
-                        print('\n after update_blsec_queue_priority:', self.blsec_t.name, '  ', self.blsec_t.blsec_queue)
+                        print('\n after update_queue_priority:', self.blsec_t.name, '  ', self.blsec_t.blsec_queue)
                         print('\n given blsec_t occ_end is ', self.blsec_t.occ_end)
                     else:
                         print('time diff is', t_dep_updt - t)
@@ -702,14 +702,15 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                     if sib is not None:
                         print(sib.name, '| occ_train:', sib.occ_train, '| occ_end:', sib.occ_end)
             if self.USE_EVENT_MANAGER:
-                # Every self.sched_updt() call site in resource_update_event() (and in
-                # update_blsec_queue_priority(), the one other place that calls it) only
-                # ever touches next_event_tr_id or a train already sitting in
-                # self.blsec_t's own queue/autoblock list -- verified exhaustively
-                # against every call site, not assumed. Snapshotting membership *before*
-                # the call matters: a train can be removed from the queue and have its
-                # schedule updated in the same event (the sibling-redirect branch does
-                # exactly this), so checking membership only *after* would miss it.
+                # Every sched_updt() call site in resource_update_event() (and in
+                # BlockSection.update_queue_priority(), the one other place that calls
+                # it -- see domain/block_section.py) only ever touches next_event_tr_id
+                # or a train already sitting in self.blsec_t's own queue/autoblock list
+                # -- verified exhaustively against every call site, not assumed.
+                # Snapshotting membership *before* the call matters: a train can be
+                # removed from the queue and have its schedule updated in the same
+                # event (the sibling-redirect branch does exactly this), so checking
+                # membership only *after* would miss it.
                 refresh_candidates = {self.next_event_tr_id}
                 if self.blsec_t is not None:
                     refresh_candidates.update(self.blsec_t.blsec_queue[0::6])

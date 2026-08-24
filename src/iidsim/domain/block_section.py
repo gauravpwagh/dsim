@@ -101,6 +101,56 @@ class block_sec():
             for i in range(3, len(j)):
                 self.autoblsec_list[idx][i] = j[i] + new_occ_inc
 
+    def update_queue_priority(self, train_type, next_event_tr_id, sched_updt_fn, stn0, stn1, get_stnline_dep_fn, get_stnline_arr_fn):
+        """Ensures all passenger trains are at the front of the queue and all goods
+        trains at the end. Updates occ_start/occ_end and schedules for goods trains if
+        needed. Stage 3b of docs/event-manager-design.md -- translated line-for-line
+        from PriorityMixin.update_blsec_queue_priority (priority.py), which already
+        took `blsec` as an explicit parameter rather than reading self.blsec_t, so
+        `self` here is simply that same block section. sched_updt_fn / get_stnline_*_fn
+        are the Simulation's own bound methods, injected rather than duplicated since
+        they need engine-wide state (train schedules, station-line lookups across two
+        stations) this class doesn't own. stn0/stn1 are the caller's
+        self.stns_event[0]/[1].
+        """
+        if not self.blsec_queue:
+            return
+        queue = [self.blsec_queue[i:i + 6] for i in range(0, len(self.blsec_queue), 6)]
+        passenger_trains = [q for q in queue if q[2] == 'p']
+        goods_trains = [q for q in queue if q[2] == 'g']
+        queue = passenger_trains + goods_trains
+        if passenger_trains and goods_trains and (train_type == 'p'):
+            current_train_start_time = goods_trains[0][4]
+            time_taken = passenger_trains[-1][5] - passenger_trains[-1][4]
+            current_train_end_time = current_train_start_time + time_taken
+            current_train_ind = passenger_trains[-1][3]
+            sched_updt_fn(current_train_start_time, current_train_ind, next_event_tr_id)
+            stn_line = get_stnline_dep_fn([stn0, stn1], passenger_trains[-1][1])
+            stn0.set_occupancy_updt(stn_line, passenger_trains[-1][0])
+            passenger_trains[-1][4] = current_train_start_time
+            passenger_trains[-1][5] = current_train_end_time
+            prev_end = current_train_end_time + pd.Timedelta(minutes=1)
+            for gq in goods_trains:
+                duration = gq[5] - gq[4]
+                gq[4] = max(prev_end, gq[4]) + pd.Timedelta(minutes=1)
+                gq[5] = gq[4] + duration
+                tr_id = gq[0]
+                t_ind_queue = gq[3]
+                sched_updt_fn(gq[4], t_ind_queue, tr_id)
+                stn_line_stn0 = get_stnline_dep_fn([stn0, stn1], gq[1])
+                stn_line_stn1 = get_stnline_arr_fn([stn0, stn1], gq[1])
+                print('gq[1] value is ', gq[1])
+                print('gq value is ', gq)
+                print('inside goods train upt function; get_train_stnline stn0:', stn_line_stn0, 'stn1:', stn_line_stn1)
+                if stn_line_stn0 is not None:
+                    stn0.set_occupancy_updt(stn_line_stn0, gq[5])
+                elif stn_line_stn1 is not None:
+                    stn1.set_occupancy_updt(stn_line_stn1, gq[5])
+                else:
+                    print(f'[goods train update] train {gq[1]} not found at either station, skipping stn line update')
+                prev_end = gq[5]
+            self.blsec_queue = [item for sublist in queue for item in sublist]
+
     def ready_to_depart(self, count_curr_blsec, count_next_blsec, free_stn_lines, same_dir_stn_count, next_blsec_list, current_train_dir):
         """Whether a train waiting at the station may depart onto this block section
         right now, given single/double-line occupancy of this section and the

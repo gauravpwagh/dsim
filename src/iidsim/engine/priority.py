@@ -148,47 +148,7 @@ class PriorityMixin:
             updt_dep_time = prev_pass_train_arr_time
             return updt_dep_time
 
-    def update_blsec_queue_priority(self, blsec, train_type, next_event_tr_id):
-        """
-        Ensures all passenger trains are at the front of the queue and all goods trains at the end.
-        Updates occ_start/occ_end and schedules for goods trains if needed.
-        """
-        if not blsec.blsec_queue:
-            return
-        queue = [blsec.blsec_queue[i:i + 6] for i in range(0, len(blsec.blsec_queue), 6)]
-        passenger_trains = [q for q in queue if q[2] == 'p']
-        goods_trains = [q for q in queue if q[2] == 'g']
-        queue = passenger_trains + goods_trains
-        if passenger_trains and goods_trains and (train_type == 'p'):
-            current_train_start_time = goods_trains[0][4]
-            time_taken = passenger_trains[-1][5] - passenger_trains[-1][4]
-            current_train_end_time = current_train_start_time + time_taken
-            current_train_ind = passenger_trains[-1][3]
-            self.sched_updt(current_train_start_time, current_train_ind, next_event_tr_id)
-            stn_line = self.get_train_stnline_for_departure_delay(self.stns_event, passenger_trains[-1][1])
-            self.stns_event[0].set_occupancy_updt(stn_line, passenger_trains[-1][0])
-            passenger_trains[-1][4] = current_train_start_time
-            passenger_trains[-1][5] = current_train_end_time
-            prev_end = current_train_end_time + pd.Timedelta(minutes=1)
-            for gq in goods_trains:
-                duration = gq[5] - gq[4]
-                gq[4] = max(prev_end, gq[4]) + pd.Timedelta(minutes=1)
-                gq[5] = gq[4] + duration
-                tr_id = gq[0]
-                t_ind_queue = gq[3]
-                self.sched_updt(gq[4], t_ind_queue, tr_id)
-                stn_line_stn0 = self.get_train_stnline_for_departure_delay(self.stns_event, gq[1])
-                stn_line_stn1 = self.get_train_stnline_for_arrival_delay(self.stns_event, gq[1])
-                print('gq[1] value is ', gq[1])
-                print('gq value is ', gq)
-                print('inside goods train upt function; get_train_stnline stn0:', stn_line_stn0, 'stn1:', stn_line_stn1)
-                if stn_line_stn0 is not None:
-                    self.stns_event[0].set_occupancy_updt(stn_line_stn0, gq[5])
-                elif stn_line_stn1 is not None:
-                    self.stns_event[1].set_occupancy_updt(stn_line_stn1, gq[5])
-                else:
-                    print(f'[goods train update] train {gq[1]} not found at either station, skipping stn line update')
-                prev_end = gq[5]
-            blsec.blsec_queue = [item for sublist in queue for item in sublist]
-        else:
-            'do nothing'
+    # update_blsec_queue_priority was here -- moved to BlockSection.update_queue_priority
+    # (domain/block_section.py) as part of docs/event-manager-design.md stage 3b. See
+    # that method's docstring for the translation notes; verified via a before/after
+    # total_schedule diff (git history has the original if it's ever needed).
