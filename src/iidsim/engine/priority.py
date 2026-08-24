@@ -43,7 +43,6 @@ class PriorityMixin:
                 continue
             else:
                 return False
-        print('Since all trains on station are goods and prev blsec has passenger we would have to depart this gooods train')
         return True
 
     def get_pass_train_stnline_endtimes(self, t, next_event_tr_id):
@@ -52,10 +51,7 @@ class PriorityMixin:
             conn_key = self.blsec_t.name + '_' + str(stn_line)
             if conn_key in self.stns_event[0].connections:
                 stn_lines.append(conn_key.split('_')[-1])
-        print('list of stn lines', stn_lines)
-        print('goods train timetable is', self.sched_act[next_event_tr_id])
         current_train_dir = self.train_direction(self.tr_next_event, self.stns_event[0].name)
-        print('current departing train direction is', current_train_dir)
         pass_train_stnline_endtimes = []
         for stn_line in stn_lines:
             try:
@@ -64,38 +60,26 @@ class PriorityMixin:
                 continue
             if not isinstance(tr_info, (list, tuple)):
                 continue
-            print('tr info for station line ', stn_line, ' is ', tr_info)
             occ_train_id = tr_info[5] if len(tr_info) > 5 else None
             if occ_train_id is None:
                 continue
-            print('occ train id is', occ_train_id)
             occ_train_obj = self.trains_by_id.get(occ_train_id)
             occ_type = getattr(occ_train_obj, 'tr_type', None) if occ_train_obj is not None else None
             if occ_type == 'p':
                 occ_train_dir = self.train_direction(occ_train_obj, self.stns_event[0].name)
-                print('occ passenger train', occ_train_id, 'direction is', occ_train_dir)
                 if occ_train_dir is None or occ_train_dir != current_train_dir:
-                    print('skipping', occ_train_id, '-- destination station or opposite direction, no conflict with', self.blsec_t.name)
                     continue
-                print('occ type is', occ_type)
-                print('tr info is', tr_info)
-                print('train id is', occ_train_id)
                 end_time = tr_info[3] if len(tr_info) > 3 else None
                 if isinstance(end_time, pd.Timestamp) and end_time >= t:
                     pass_train_stnline_endtimes.append(end_time)
         if len(pass_train_stnline_endtimes) > 0:
-            max_endtime = max([i for i in pass_train_stnline_endtimes if isinstance(i, pd.Timestamp) and i > t])
-            print('list of endtimes here is', pass_train_stnline_endtimes)
-            print('\n station line ', self.stn_line_occ_name, 'at station ', self.stns_event[0].name, 'will be free starting at t = ', max_endtime + pd.Timedelta(minutes=1))
-            print('given stn line is ', self.stn_line_occ_name)
-            print('curent station is', self.stns_event[0].name, self.stns_event[1].name)
+            max_endtime = max([endtime for endtime in pass_train_stnline_endtimes if isinstance(endtime, pd.Timestamp) and endtime > t])
             return max_endtime
         else:
             return None
 
     def get_prev_blsec_obj(self, t_ind, next_event_tr_id):
         if t_ind - 5 < 0:
-            print('previous block section is  None  (train at origin)')
             return None
         previous_stn = self.sched_act[next_event_tr_id][t_ind - 5]
         curr_stn = self.stns_event[0].name
@@ -103,7 +87,6 @@ class PriorityMixin:
         east_bound = self.station_longitudes[curr_stn] >= self.station_longitudes[previous_stn]
         wanted = 'dn' if east_bound else 'up'
         prev_blsec_obj = next((b for b in self.blocksections_list if b.name.startswith(prev_base + '_') and isinstance(b.dir_mvmt, str) and b.dir_mvmt.startswith(wanted)), None)
-        print('previous block section is ', prev_blsec_obj.name if prev_blsec_obj else None)
         return prev_blsec_obj
 
     def get_prev_pass_train_arr_time(self, t_ind, next_event_tr_id):
@@ -113,24 +96,17 @@ class PriorityMixin:
         if prev_blsec_obj.occ_ind == 1:
             train_on_prev_blsec = prev_blsec_obj.occ_train
             train_on_prev_blsec = train_on_prev_blsec.split('_')[0]
-            print('train on previous block section is ', train_on_prev_blsec)
             prev_train = self.trains_by_id.get(train_on_prev_blsec)
-            print('previous train object is ', prev_train)
             if prev_train:
                 previous_train_type = prev_train.tr_type
             else:
                 previous_train_type = None
-            print('previous train type on previous block section is ', previous_train_type)
             if previous_train_type == 'p' and prev_blsec_obj.occ_ind == 1:
                 previous_pass_train_arr_time = getattr(prev_blsec_obj, 'occ_end', None) or getattr(prev_blsec_obj, 'occ_end_time', None)
-                previous_pass_train_id = getattr(prev_blsec_obj, 'occ_train', None)
-                print('previous passenger train id is on previous block section is ', previous_pass_train_id)
-                print('previous passenger train arrival time is ', previous_pass_train_arr_time)
                 return previous_pass_train_arr_time
             else:
                 return None
         else:
-            print('Previous blsec is empty')
             return None
 
     def goods_delay_due_to_passenger(self, sched_act, t, t_ind, next_event_tr_id):
