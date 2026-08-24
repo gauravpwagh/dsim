@@ -33,7 +33,6 @@ class RandomnessMixin:
         entry = times_dict.get('dn', {}).get(blsec_key) or times_dict.get('up', {}).get(blsec_key)
         if not entry:
             return None
-        print('inside the function of finding the sample blsec crossing time')
         weights = np.array(entry['weights'], dtype=float)
         probs = weights / weights.sum()
         return rng.choice(entry['values'], p=probs)
@@ -56,9 +55,8 @@ class RandomnessMixin:
             train_type = 'G' if self.tr_next_event.tr_type == 'g' else 'P'
         except Exception:
             return 0
-        Y = self._generate_halt_deviation(station, train_type, self._halt_dev_rng)
-        print(f'\n [halt-deviation] station={station} train_type={train_type} sampled Y={Y} min')
-        return Y
+        deviation_minutes = self._generate_halt_deviation(station, train_type, self._halt_dev_rng)
+        return deviation_minutes
 
     def add_speed_randomness(self, base_speed):
         if not self.USE_SPEED_RANDOMNESS:
@@ -80,13 +78,11 @@ class RandomnessMixin:
         t_blsec_end = self.blsec_t.length * 60 / tr_dep_speed
         t_blsec_end_int = int(np.ceil(t_blsec_end))
         t_blsec_end = pd.Timedelta(minutes=t_blsec_end_int)
-        print('before adding the randomness the blsec crossing time is ', t_blsec_end)
         tr_dep_speed_mod = self.add_speed_randomness(tr_dep_speed)
         t_blsec_occ_end = self.blsec_t.length / tr_dep_speed_mod
         t_blsec_occ_end = t_blsec_occ_end * 60
         t_blsec_occ_end_int = int(np.ceil(t_blsec_occ_end))
         t_blsec_occ_end = pd.Timedelta(minutes=t_blsec_occ_end_int)
-        print('after adding the randomness blsec crossing time is ', t_blsec_occ_end)
         new_arrival_time = self.t + t_blsec_occ_end
         new_arrival_time = new_arrival_time.replace(microsecond=0)
         original_arrival_time = self.sched_act[next_event_tr_id][t_ind + 2]

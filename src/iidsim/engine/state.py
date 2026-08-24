@@ -88,14 +88,14 @@ class SimulationState:
             self.total_schedule[self.tr_instance_id]['actual'] = [[tr.tr_type]]
         for tr in self.trains:
             self.tr_instance_id = tr.train_id + '_' + str(tr.instance_index)
-            for j in tr.tr_schedule:
-                self.total_schedule[self.tr_instance_id]['planned'].append([j])
-                self.total_schedule[self.tr_instance_id]['planned'].append([tr.tr_schedule[j][0]])
-                self.total_schedule[self.tr_instance_id]['planned'].append([tr.tr_schedule[j][1]])
-            for j in tr.tr_real_schedule:
-                self.total_schedule[self.tr_instance_id]['actual'].append([j])
-                self.total_schedule[self.tr_instance_id]['actual'].append([tr.tr_real_schedule[j][0]])
-                self.total_schedule[self.tr_instance_id]['actual'].append([tr.tr_real_schedule[j][1]])
+            for station_name in tr.tr_schedule:
+                self.total_schedule[self.tr_instance_id]['planned'].append([station_name])
+                self.total_schedule[self.tr_instance_id]['planned'].append([tr.tr_schedule[station_name][0]])
+                self.total_schedule[self.tr_instance_id]['planned'].append([tr.tr_schedule[station_name][1]])
+            for station_name in tr.tr_real_schedule:
+                self.total_schedule[self.tr_instance_id]['actual'].append([station_name])
+                self.total_schedule[self.tr_instance_id]['actual'].append([tr.tr_real_schedule[station_name][0]])
+                self.total_schedule[self.tr_instance_id]['actual'].append([tr.tr_real_schedule[station_name][1]])
         self.big_time_value = pd.Timestamp('2100-06-01 00:00:00')
         if start_dt_mode == 'manual':
             self.start_dt = start_dt_manual
@@ -106,17 +106,16 @@ class SimulationState:
         print(f'start_dt ({start_dt_mode}): {self.start_dt}')
         self.sched = {}
         self.sched_act = {}
-        for i in self.trains:
+        for tr in self.trains:
             self.tr_sched = []
-            self.tr_sched_name = i.train_id + '_' + str(i.instance_index)
+            self.tr_sched_name = tr.train_id + '_' + str(tr.instance_index)
             self.sched[self.tr_sched_name] = self.tr_sched
-            for j in i.tr_schedule:
-                self.sched[self.tr_sched_name].append(j)
-                self.sched[self.tr_sched_name].append(i.tr_schedule[j][0])
-                self.sched[self.tr_sched_name].append(i.tr_schedule[j][1])
+            for station_name in tr.tr_schedule:
+                self.sched[self.tr_sched_name].append(station_name)
+                self.sched[self.tr_sched_name].append(tr.tr_schedule[station_name][0])
+                self.sched[self.tr_sched_name].append(tr.tr_schedule[station_name][1])
         self.sched_act = {k: list(v) for k, v in self.sched.items()}
         self.given_sched = {k: list(v) for k, v in self.sched.items()}
-        print('\n planned schedule of trains: ', self.sched)
         self.HALT_DEVIATION_SEED = 1234
         self._halt_dev_rng = np.random.default_rng(self.HALT_DEVIATION_SEED)
         self.exec_sim = 0

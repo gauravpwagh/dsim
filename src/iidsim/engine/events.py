@@ -17,21 +17,21 @@ class EventsMixin:
 
     def build_event_list(self):
         event_list = []
-        for j in self.sched_act:
-            b = [k for k in self.sched_act[j] if isinstance(k, str) == False and k < pd.Timestamp('2100-06-01 22:50:00')]
-            if len(b) > 0:
-                a = min(b)
-                a_ind = self.sched_act[j].index(a)
-                if isinstance(self.sched_act[j][a_ind - 1], str):
-                    a_type = 'a'
-                elif isinstance(self.sched_act[j][a_ind - 1], str) == False:
-                    a_type = 'd'
-                tr_num_ind = j.index('_')
-                tr_name = j[0:tr_num_ind]
-                event_list.append(tr_name)
-                event_list.append(a)
-                event_list.append(a_type)
-                event_list.append(j)
+        for instance_id in self.sched_act:
+            pending_times = [v for v in self.sched_act[instance_id] if isinstance(v, str) == False and v < pd.Timestamp('2100-06-01 22:50:00')]
+            if len(pending_times) > 0:
+                next_time = min(pending_times)
+                next_time_idx = self.sched_act[instance_id].index(next_time)
+                if isinstance(self.sched_act[instance_id][next_time_idx - 1], str):
+                    event_type = 'a'
+                elif isinstance(self.sched_act[instance_id][next_time_idx - 1], str) == False:
+                    event_type = 'd'
+                underscore_idx = instance_id.index('_')
+                train_id = instance_id[0:underscore_idx]
+                event_list.append(train_id)
+                event_list.append(next_time)
+                event_list.append(event_type)
+                event_list.append(instance_id)
             else:
                 'do nothing'
         return event_list
@@ -70,36 +70,35 @@ class EventsMixin:
                 'do nothing'
         stns = []
         stn_names = []
-        for j in stations_list:
-            if j.name == next_event_stn_up1:
-                stns.append(j)
-                stn_names.append(j.name)
-        for i in stations_list:
+        for station in stations_list:
+            if station.name == next_event_stn_up1:
+                stns.append(station)
+                stn_names.append(station.name)
+        for station in stations_list:
             if next_event_stn_mid1 != '':
-                if i.name == next_event_stn_mid1:
-                    stns.append(i)
-                    stn_names.append(i.name)
-        print('\n stations_list involved at time ', t, 'are ', stn_names)
+                if station.name == next_event_stn_mid1:
+                    stns.append(station)
+                    stn_names.append(station.name)
         return stns
 
     def sched_updt(self, t_updt_start, t_ind, next_event_tr_id):
         num_updt = self.sched_act[next_event_tr_id][t_ind:]
         updt_inc = t_updt_start - self.sched_act[next_event_tr_id][t_ind]
-        for j in range(len(num_updt)):
-            if isinstance(self.sched_act[next_event_tr_id][t_ind + j], str):
+        for offset in range(len(num_updt)):
+            if isinstance(self.sched_act[next_event_tr_id][t_ind + offset], str):
                 'do nothing'
             else:
-                self.sched_act[next_event_tr_id][t_ind + j] = self.sched_act[next_event_tr_id][t_ind + j] + updt_inc
+                self.sched_act[next_event_tr_id][t_ind + offset] = self.sched_act[next_event_tr_id][t_ind + offset] + updt_inc
 
     def term_crit_calc(self):
-        b = []
-        for j in self.sched_act:
-            c = [k for k in self.sched_act[j] if isinstance(k, str) == False and k < pd.Timestamp('2100-06-01 22:50:00')]
-            if len(c) > 0:
-                b.append(max(c))
+        latest_pending_times = []
+        for instance_id in self.sched_act:
+            pending_times = [v for v in self.sched_act[instance_id] if isinstance(v, str) == False and v < pd.Timestamp('2100-06-01 22:50:00')]
+            if len(pending_times) > 0:
+                latest_pending_times.append(max(pending_times))
             else:
-                b.append(pd.Timestamp('1900-01-01 00:00:00'))
-        t_max = max(b)
+                latest_pending_times.append(pd.Timestamp('1900-01-01 00:00:00'))
+        t_max = max(latest_pending_times)
         return t_max
 
     def tr_sched_updt(self, t, next_event_type):
