@@ -83,25 +83,20 @@ def create_station_class(station_name, longitude, station_config):
             stn1 = ''
             stn2 = self.name
             stn3 = ''
-            print('stns_events list is ', [self.name] + ([prev_station.name] if prev_station is not None else []))
             if t_ind > 1:
                 if t_ind != len_sched - 2:
                     stn1 = prev_station.name
                     stn3 = sched_act[next_event_tr_id][t_ind + 2]
-                    print('stn1, stn2 and stn3 before finding the blsec is ', stn1, stn2, stn3)
                     out_blsec_dir = blsec_id_fn(stn2, stn3).dir_mvmt
-                    print('next blsec outgoing direction is ', out_blsec_dir)
                 else:
                     stn1 = sched_act[next_event_tr_id][t_ind - 4]
                 arrived_dir = blsec_t.dir_mvmt
-                print('train arrived blocksection direction is ', arrived_dir)
             else:
                 stn3 = sched_act[next_event_tr_id][t_ind + 2]
                 out_blsec_dir = blsec_id_fn(stn2, stn3).dir_mvmt
-                print('outgoing connection direction is ', out_blsec_dir)
             tracks = self.tracks
             if train.tr_type == 'g':
-                track_order = sorted(tracks.keys(), key=lambda j: tracks[j][1] != 0)
+                track_order = sorted(tracks.keys(), key=lambda track_name: tracks[track_name][1] != 0)
             else:
                 track_order = list(tracks.keys())
             arrival_time = train.tr_sched_act[self.name][0]
@@ -110,37 +105,31 @@ def create_station_class(station_name, longitude, station_config):
             halting_passenger = train.tr_type == 'p' and (not same_arr_dep)
             total_passes = 2 if halting_passenger else 1
             for pass_no in range(total_passes):
-                for j in track_order:
-                    print('\n station line under consideration: ', j, self.tracks[j][0])
-                    if self.tracks[j][0] != 0:
+                for track_name in track_order:
+                    if self.tracks[track_name][0] != 0:
                         continue
-                    if pass_no == 0 and halting_passenger and (self.tracks[j][1] == 0):
+                    if pass_no == 0 and halting_passenger and (self.tracks[track_name][1] == 0):
                         continue
-                    print('\n current stn line is free')
                     if t_ind > 1:
-                        print('current blocksection is ', blsec_t.name)
-                        c1 = blsec_t.name + '_' + str(j)
-                        if c1 not in self.connections:
-                            c1 = None
-                        print('incoming connection c1 connection is ', c1)
+                        incoming_conn = blsec_t.name + '_' + str(track_name)
+                        if incoming_conn not in self.connections:
+                            incoming_conn = None
                         if t_ind != len_sched - 2:
-                            c2 = conn_exists_fn(self, stn2, stn3, out_blsec_dir, j)
-                            print('out going connection is ', c2)
-                            if c1 and c2:
-                                next_event_conn1, next_event_conn2 = (c1, c2)
+                            outgoing_conn = conn_exists_fn(self, stn2, stn3, out_blsec_dir, track_name)
+                            if incoming_conn and outgoing_conn:
+                                next_event_conn1, next_event_conn2 = (incoming_conn, outgoing_conn)
                             else:
                                 next_event_conn1 = next_event_conn2 = ''
                         else:
-                            next_event_conn1 = c1 if c1 else ''
+                            next_event_conn1 = incoming_conn if incoming_conn else ''
                             next_event_conn2 = ''
                     else:
-                        c1 = conn_exists_fn(self, stn2, stn3, out_blsec_dir, j)
-                        next_event_conn1 = c1 if c1 else ''
+                        incoming_conn = conn_exists_fn(self, stn2, stn3, out_blsec_dir, track_name)
+                        next_event_conn1 = incoming_conn if incoming_conn else ''
                         next_event_conn2 = ''
-                    print('\n next_event_conn1 and next_event_conn2 after connection check: ', next_event_conn1, next_event_conn2)
                     if next_event_conn1 != '':
                         stn_line_occ_flag = 1
-                        stn_line_occ_name = j
+                        stn_line_occ_name = track_name
                         return [stn_line_occ_flag, stn_line_occ_name, next_event_conn1, next_event_conn2]
             return [stn_line_occ_flag, stn_line_occ_name, next_event_conn1, next_event_conn2]
 

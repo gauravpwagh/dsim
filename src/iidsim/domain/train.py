@@ -1,8 +1,8 @@
 import pandas as pd
 
 class train():
-    def __init__(self,id, tr_type, tr_schedule, origin, destination, max_speed, instance_index, tr_real_schedule=None):
-        self.train_id = id #unique train ID
+    def __init__(self,train_id, tr_type, tr_schedule, origin, destination, max_speed, instance_index, tr_real_schedule=None):
+        self.train_id = train_id #unique train ID
         #self.train_dir = dir #direction of movement: 0 for down, 1 for up
         self.tr_type = tr_type #'p' for passenger, 'g' for goods
         self.tr_schedule = tr_schedule # dictionary
@@ -19,27 +19,27 @@ class train():
     
 
     def calc_tr_stats(self): #method for computing statistics at individual train level
-        dev_sched = pd.Timedelta(0) 
-        earlyness = pd.Timedelta(0) 
-        tardiness = pd.Timedelta(0) 
-        sched_tardiness = pd.Timedelta(0)  
-        sched_earlyness = pd.Timedelta(0) 
-        n_sched = len(self.tr_schedule) 
+        total_deviation = pd.Timedelta(0)
+        total_earliness = pd.Timedelta(0)
+        total_tardiness = pd.Timedelta(0)
+        destination_tardiness = pd.Timedelta(0)
+        destination_earliness = pd.Timedelta(0)
+        station_count = len(self.tr_schedule)
 
-        for j in self.tr_sched_act: 
-            dev = self.tr_schedule[j][0] - self.tr_sched_act[j][0]
-            dev_minutes = dev.total_seconds() / 60 # convert timedelta to minutes 
-            dev_sched += abs(dev) 
-            earlyness += max(pd.Timedelta(0), dev)
-            tardiness += max(pd.Timedelta(0), -1*dev)
+        for station_name in self.tr_sched_act:
+            deviation = self.tr_schedule[station_name][0] - self.tr_sched_act[station_name][0]
+            deviation_minutes = deviation.total_seconds() / 60 # convert timedelta to minutes
+            total_deviation += abs(deviation)
+            total_earliness += max(pd.Timedelta(0), deviation)
+            total_tardiness += max(pd.Timedelta(0), -1*deviation)
         arrival_actual = self.tr_sched_act[self.tr_destination][0]
         arrival_planned = self.tr_schedule[self.tr_destination][0]
-        sched_tardiness = max(pd.Timedelta(0), arrival_actual - arrival_planned)
-        sched_earlyness = max(pd.Timedelta(0), arrival_planned - arrival_actual)
-        
-        avg_dev_sched = dev_sched/n_sched
-        avg_earlyness = earlyness/n_sched 
-        avg_tardiness = tardiness/n_sched
+        destination_tardiness = max(pd.Timedelta(0), arrival_actual - arrival_planned)
+        destination_earliness = max(pd.Timedelta(0), arrival_planned - arrival_actual)
 
-        return {'overall tardiness': sched_tardiness, 'overall earlyness': sched_earlyness, 'Average deviation': avg_dev_sched, 'Average earlyness': avg_earlyness, 'Average tardiness': avg_tardiness}
+        avg_deviation = total_deviation/station_count
+        avg_earliness = total_earliness/station_count
+        avg_tardiness = total_tardiness/station_count
+
+        return {'overall tardiness': destination_tardiness, 'overall earlyness': destination_earliness, 'Average deviation': avg_deviation, 'Average earlyness': avg_earliness, 'Average tardiness': avg_tardiness}
 
