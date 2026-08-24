@@ -6,9 +6,13 @@
 > The descriptions of *what* each piece does and *why* are still accurate; only *where*
 > changed.
 
-The physical network and rolling stock are modeled as plain Python classes, kept
-deliberately simple (lists/dicts as ad-hoc structs) so the simulation engine can mutate
-them cheaply during the event loop.
+The physical network and rolling stock are modeled as plain Python classes. `Station` and
+`block_sec`'s internal *state* is kept deliberately simple (lists/dicts as ad-hoc structs)
+so the simulation engine can mutate it cheaply during the event loop — but as of
+[event-manager-design.md](event-manager-design.md) stages 2-4, these classes also own real
+*decisions* (which line to assign, whether a block section is ready to release a train,
+queue priority, autoblock sequencing, sibling redirect), not just state. See each class's
+section below for what moved.
 
 ## `trains.py` — the `train` class
 
@@ -50,6 +54,15 @@ per-station object (via a locally-defined class, one instance per call) with:
 - Methods to set/clear track occupancy (`set_occupancy_arr`, `set_occupancy_dep`,
   `set_occupancy_updt`) and connection occupancy (`set_occ_conn_in`/`set_occ_conn_out`),
   and `is_occupied(track_name)`.
+- `assign_line(train, t_ind, next_event_tr_id, len_sched, sched_act, blsec_t, prev_station,
+  blsec_id_fn, conn_exists_fn)` — **decides** which of this station's tracks a just-arrived
+  train should occupy (platform-required first pass for halting passenger trains, a
+  relaxed fallback pass if every platformed line is occupied), and the connection key(s)
+  linking it to the block section on either side. Moved here from the engine's
+  `stn_line_assign` ([event-manager-design.md](event-manager-design.md) stage 2);
+  `blsec_id_fn`/`conn_exists_fn` are the simulation's own bound methods, injected rather
+  than duplicated since they need network-wide block-section lookups this class doesn't
+  own.
 
 `populate_connections(blocksections_list, station_dict, stations_list)` is called **once**,
 after all stations and block sections for a network are built, to wire each station's
@@ -80,6 +93,20 @@ block_sec(dir, stn_start, stn_end, length, conns, stations_list)
   time/distance gap between successive trains.
 - `train_occ_start/_end/_updt`, `queue_add/_remove/_updt`, and the autoblock equivalents
   mutate this state as the event loop processes arrivals/departures.
+- Four decision methods moved here from the engine
+  ([event-manager-design.md](event-manager-design.md) stages 3-4), each taking whatever
+  external collaborators it needs (train, station, other bound methods) as explicit
+  parameters rather than reading ambient simulation state:
+  - `ready_to_depart(...)` — the single/double-line departure-readiness check (pure
+    read-only, no state mutated).
+  - `update_queue_priority(...)` — reorders `blsec_queue` so passenger trains precede
+    goods trains, shifting the bumped goods trains' schedules/occupancy accordingly.
+  - `process_autoblock_departure(...)` — autoblock (moving-block signalling) sequencing:
+    whether a train can depart onto this section now or must wait for headway/
+    safe-distance clearance behind the last train through.
+  - `find_free_sibling(blsec_lookup, ...)` — a free parallel section (same station pair,
+    different direction suffix) this train could redirect onto if `self` is occupied or
+    queued.
 
 ## `network/` — assembling the physical graph
 

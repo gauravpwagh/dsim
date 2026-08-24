@@ -4,11 +4,17 @@
 > split across `state.py`/`resolve.py`/`priority.py`/`randomness.py`/`events.py`/`run.py`
 > (`run_simulation()` in `run.py` is the callable entry point — run via
 > `iidsim run --dataset ... --corridor ...` or `notebooks/run_simulation.ipynb`), not a
-> standalone script. See [restructure-notes.md](restructure-notes.md) for what changed,
-> how the split was done safely, and what's still recommended as follow-up (mainly:
-> `resource_update_event` itself, ~700 lines, is still one method — a further,
-> higher-risk decomposition than the file split was). The mechanics described below are
-> otherwise unchanged — same event loop, same conflict-resolution logic.
+> standalone script. See [restructure-notes.md](restructure-notes.md) for what changed and
+> how the split was done safely.
+>
+> **The event loop and much of `resource_update_event` have since moved again** — see
+> [event-manager-design.md](event-manager-design.md), whose four stages are now all
+> implemented: event selection is a heap (`EventManager`, default) instead of
+> `build_event_list()`, and line assignment, queue priority, autoblock sequencing, and
+> sibling redirect now live on `Station`/`BlockSection` instead of the engine.
+> `resource_update_event` itself is smaller as a result (~467 lines, down from ~700) but
+> still exists as one method — the "Event loop" and "Block-section assignment" sections
+> below describe the *current* mechanics, not the pre-migration ones.
 
 This ~2,900-line script (mirrored in `final_sim_sj_4aug.ipynb` for interactive runs) is
 the heart of the project: a discrete-event simulation that replays a planned timetable
@@ -58,25 +64,33 @@ code that runs on import/execution.
 
 ```python
 while t <= t_max and exec_sim == 0:
-    event_list = build_event_list()          # next pending arrival/departure per train
-    ... pick the earliest event (t, type, train) ...
+    t, next_event_type, next_event_tr_id = event_manager.pop_next()  # next event, O(log n)
     stns_event = get_station_event(...)       # station(s) involved
     blsec_t = blsec_id(...)                   # which block section this event concerns
     resource_update_event(next_event_type, next_event_tr_id, t)   # <- does the real work
     t_max = term_crit_calc()                  # recompute simulation end time
+    event_manager.notify_updated(...)         # refresh heap entries for affected trains
 ```
 
-- `build_event_list()` scans every train's `sched_act` for its next not-yet-processed
-  timestamp (anything before the `2100-06-01` "done" sentinel) and returns the globally
-  earliest one, tagged `'a'` (arrival) or `'d'` (departure).
+- `EventManager` (`src/iidsim/engine/event_manager.py`, default via
+  `use_event_manager=True`) holds a lazy-deletion min-heap of each train's next pending
+  `(time, type)`, instead of `build_event_list()` rescanning every train's entire
+  `sched_act` on every event. Ties on an exact timestamp resolve by input train-list
+  order, reproducing `build_event_list()`'s original tie-break exactly. See
+  [event-manager-design.md](event-manager-design.md) for the mechanics and why it's
+  faster (measured ~27% on the largest corridor, from event selection alone).
+  `use_event_manager=False` still runs the original `build_event_list()` + linear-scan
+  path if ever needed, unchanged.
 - `term_crit_calc()` recomputes the simulation's end time each iteration (the latest
   remaining un-processed event across all trains) — the loop naturally terminates once
   every train has reached its destination.
-- `resource_update_event(...)` (the largest function, ~450 lines) is where a single
-  arrival or departure event is actually resolved: it assigns a station line/platform,
-  checks the target block section's occupancy/queue, applies priority and randomness
-  rules, updates occupancy state, and pushes the (possibly delayed) new time back into
-  `sched_act`.
+- `resource_update_event(...)` (still the largest function, ~467 lines) is where a single
+  arrival or departure event is actually resolved. It delegates the *decisions* to
+  `Station`/`BlockSection` (line/platform assignment, departure readiness, queue
+  priority, autoblock sequencing, sibling redirect — see
+  [domain-model.md](domain-model.md)) and applies randomness, then itself handles
+  everything those decisions don't own: occupancy bookkeeping, schedule propagation, and
+  pushing the (possibly delayed) new time back into `sched_act`.
 
 ## Block-section assignment — `blsec_id(stn1, stn2)`
 
@@ -92,7 +106,7 @@ lines (`dn1`/`up1`/`mid1`/`mid2`):
    line the train currently occupies.
 4. For a **departure**, if the train is already queued on one of the candidate sections,
    reuses that section if it's now free, or looks for a free "sibling" section (same
-   station pair, different direction-suffix) via `find_free_sibling_blsec(...)` — this
+   station pair, different direction-suffix) via `blsec.find_free_sibling(...)` — this
    lets a train queued on a busy `mid1` line get redirected onto a free `dn1`/`up1` if one
    opens up, provided the sibling actually runs the same physical direction and is wired
    to the train's current station line.

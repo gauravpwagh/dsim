@@ -21,14 +21,14 @@ This documentation is split into focused files:
 |---|---|
 | [architecture.html](architecture.html) | A one-page flowchart of the whole system — open in a browser |
 | [web-ui.md](web-ui.md) | `iidsim serve` — a local web UI for launching runs and observing results (live log, animated time-distance view, per-train schedule) |
-| [domain-model.md](domain-model.md) | The core classes: `train`, station, block section, and how the physical network graph is assembled (`iidsim.domain`, `iidsim.network`) |
+| [domain-model.md](domain-model.md) | The core classes: `train`, station, block section — their state, the decisions they now own, and how the physical network graph is assembled (`iidsim.domain`, `iidsim.network`) |
 | [simulation-engine.md](simulation-engine.md) | The simulation engine — the event loop, conflict/priority rules, randomness models, and outputs (`iidsim.engine`) |
 | [data-files.md](data-files.md) | Auto-generated reference data: station longitudes, block-section distances/crossing-times/speeds, halt-deviation statistical fits (`iidsim.data`) |
 | [input-generation.md](input-generation.md) | How the per-corridor train lists that the simulator consumes are produced, from Excel timetables through the goods-scheduling notebook (`iidsim.schedules`) |
 | [outputs.md](outputs.md) | The charting and data-extraction helpers, and what lands in `output_files_*` (`iidsim.reporting`) |
 | [restructure-notes.md](restructure-notes.md) | Old-path -> new-path mapping, how the restructure was verified, and what was deliberately deferred |
 | [efficiency-review.md](efficiency-review.md) | Compute/time/memory findings — what was fixed and verified, and what's recommended but deferred |
-| [event-manager-design.md](event-manager-design.md) | Proposed (not started): a heap-based `EventManager` and giving `Station`/`BlockSection`/`Train` their own decision logic — scalability analysis and staged migration plan |
+| [event-manager-design.md](event-manager-design.md) | Done: a heap-based `EventManager` (default) plus `Station`/`BlockSection` owning their own line-assignment, queue-priority, autoblock, and sibling-redirect decisions — all four stages implemented and verified |
 
 ## Big picture
 

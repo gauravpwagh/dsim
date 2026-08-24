@@ -61,13 +61,17 @@ These need either a broader regression suite (to safely verify no behavioral dri
 trickier branches — autoblock, starvation override, sibling redirect) or touch
 chart-rendering output that the current smoke test doesn't check pixel/vector-for-vector:
 
-1. **Event selection via a priority queue instead of full-rebuild-and-rescan.**
-   `build_event_list()` re-scans every train's entire schedule list on every single event
-   to find the next one (`min()` over a freshly filtered copy), which is roughly
-   O(trains x stops) per event rather than O(log n) with a heap. This is the single
-   biggest remaining algorithmic cost, but replacing it changes the tie-breaking mechanics
-   when multiple events share an exact timestamp — needs care and test coverage before
-   touching it.
+1. ~~**Event selection via a priority queue instead of full-rebuild-and-rescan.**~~
+   **Done** — see [event-manager-design.md](event-manager-design.md).
+   `build_event_list()`'s O(trains x stops)-per-event rescan is now a lazy-deletion
+   min-heap (`src/iidsim/engine/event_manager.py`, default since stage 0), with the
+   tie-breaking mechanics this note worried about reproduced exactly (verified via
+   diffing, not assumed) and an O(1) staleness-check cache added on top (stage 1).
+   Measured on the largest corridor: 69.5s -> 51.0s from the heap alone. The design doc
+   went further than event selection too — the same "extend tests, diff before/after"
+   discipline this review recommended was then applied to move line assignment, queue
+   priority, autoblock sequencing, and sibling redirect off the engine and onto
+   `Station`/`BlockSection` (stages 2-4).
 2. **`blsec_id()` and a few related functions still linear-scan `blocksections_list`**
    with string-prefix matching (`.startswith()`) rather than using the existing
    `blsec_lookup` dict or a station-pair-keyed index. Not changed because `blsec_id`'s

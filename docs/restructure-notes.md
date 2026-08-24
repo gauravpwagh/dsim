@@ -180,6 +180,20 @@ revisiting once coverage is broader.
 
 ## Recommended follow-ups (not done here)
 
+> **Items 1-2 below are substantially superseded** — see
+> [event-manager-design.md](event-manager-design.md), all four stages of which are now
+> implemented. The regression suite was extended well beyond what's listed here
+> (`tests/test_event_manager.py`, `tests/test_sibling_redirect.py`), the sibling-redirect
+> gap is closed, and `resource_update_event` *was* decomposed — not as originally imagined
+> (splitting it into arrival/departure/queue methods on `Simulation`), but by moving
+> whole decisions (line assignment, queue priority, autoblock sequencing, sibling
+> redirect) out onto `Station`/`BlockSection` instead, using the same
+> "extend tests first, diff before/after" discipline this file describes for the engine
+> split. `resource_update_event` itself is smaller as a result but still exists; further
+> decomposition of what's left is not currently planned. The single-vs-double-line
+> capacity-check permutations and speed-randomness queue propagation mentioned below are
+> still genuinely untested, independent of the above.
+
 1. **Extend the regression-test suite further** before attempting to split
    `resource_update_event` itself. `tests/` now covers 3 of the trickier branches
    (autoblock sequencing, goods-starvation override, platform fallback) plus one
