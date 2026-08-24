@@ -63,6 +63,14 @@ class SimulationState:
         for b in self.blocksections_list:
             base = '_'.join(b.name.split('_')[:-1])
             self.blsec_by_pair.setdefault(base, []).append(b)
+        # {station_name: [block_sec, ...]} -- every block section touching that station
+        # as either endpoint, for find_stn3() ("what's the next station beyond this
+        # one") which needs to search by single station, not by pair. Same order
+        # guarantee as blsec_by_pair.
+        self.blsec_by_station = {}
+        for b in self.blocksections_list:
+            self.blsec_by_station.setdefault(b.stn_west.name, []).append(b)
+            self.blsec_by_station.setdefault(b.stn_east.name, []).append(b)
         if use_halt_deviation:
             self.halt_dev_fits_g = halt_deviation.fits_for('g')
             self.halt_dev_fits_p = halt_deviation.fits_for('p')

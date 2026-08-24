@@ -94,9 +94,7 @@ class ResolveMixin:
         if t_ind != len_sched - 1:
             stn2 = self.stns_event[1].name
             curr_blsec = self.conn_base(stn1, stn2)
-            for blsec in self.blocksections_list:
-                if blsec.name.startswith(curr_blsec):
-                    count_curr_blsec += 1
+            count_curr_blsec = len(self.blsec_by_pair.get(curr_blsec, []))
             for track_name, vals in self.stns_event[1].tracks.items():
                 train = vals[5]
                 train_dir = None
@@ -120,16 +118,15 @@ class ResolveMixin:
                 stn3 = self.find_stn3(stn1, stn2)
             if stn3 != '':
                 next_blsec_name = self.conn_base(stn2, stn3)
-                for blsec in self.blocksections_list:
-                    if blsec.name.startswith(next_blsec_name):
-                        count_next_blsec += 1
-                        blsec_tr_dir = None
-                        blsec_occ_train_name = blsec.occ_train.split('_')[0] if blsec.occ_train else None
-                        _t = self.trains_by_id.get(blsec_occ_train_name)
-                        if _t is not None:
-                            blsec_tr_dir = self.train_direction(_t, blsec.stn_west.name)
-                        next_blsec_list.append([blsec, blsec_tr_dir])
-                        next_blsec_list_names.append([blsec.name, blsec_tr_dir])
+                for blsec in self.blsec_by_pair.get(next_blsec_name, []):
+                    count_next_blsec += 1
+                    blsec_tr_dir = None
+                    blsec_occ_train_name = blsec.occ_train.split('_')[0] if blsec.occ_train else None
+                    _t = self.trains_by_id.get(blsec_occ_train_name)
+                    if _t is not None:
+                        blsec_tr_dir = self.train_direction(_t, blsec.stn_west.name)
+                    next_blsec_list.append([blsec, blsec_tr_dir])
+                    next_blsec_list_names.append([blsec.name, blsec_tr_dir])
             else:
                 count_next_blsec = count_curr_blsec
         return [dn_dir_stn_count, up_dir_stn_count, next_stn_line_min_endtimes, count_next_blsec, count_curr_blsec, next_blsec_list]
@@ -157,7 +154,7 @@ class ResolveMixin:
         derived from block-section. Returns '' if stn2 is at the end of the
         physical network (no other block section touches it)."""
         curr_blsec_base = self.conn_base(stn1, stn2)
-        for b in self.blocksections_list:
+        for b in self.blsec_by_station.get(stn2, []):
             if b.name.startswith(curr_blsec_base + '_'):
                 continue
             if b.stn_west.name == stn2:
@@ -230,11 +227,12 @@ class ResolveMixin:
                 return stn_line
 
     def outgoing_blsec_name(self, stn_a, stn_b):
+        # conn_base() always returns the same west_east string regardless of argument
+        # order, so a second lookup for conn_base(stn_b, stn_a) would be redundant.
         base = self.conn_base(stn_a, stn_b)
-        base_alt = self.conn_base(stn_b, stn_a)
         east_bound = self.station_longitudes[stn_b] >= self.station_longitudes[stn_a]
         wanted = 'dn' if east_bound else 'up'
-        candidates = [b for b in self.blocksections_list if b.name.startswith(base + '_') or b.name.startswith(base_alt + '_')]
+        candidates = self.blsec_by_pair.get(base, [])
         for blsec in candidates:
             if blsec.dir_mvmt.startswith(wanted):
                 return blsec.name

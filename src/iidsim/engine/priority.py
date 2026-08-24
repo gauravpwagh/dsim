@@ -86,7 +86,7 @@ class PriorityMixin:
         prev_base = self.conn_base(previous_stn, curr_stn)
         east_bound = self.station_longitudes[curr_stn] >= self.station_longitudes[previous_stn]
         wanted = 'dn' if east_bound else 'up'
-        prev_blsec_obj = next((b for b in self.blocksections_list if b.name.startswith(prev_base + '_') and isinstance(b.dir_mvmt, str) and b.dir_mvmt.startswith(wanted)), None)
+        prev_blsec_obj = next((b for b in self.blsec_by_pair.get(prev_base, []) if isinstance(b.dir_mvmt, str) and b.dir_mvmt.startswith(wanted)), None)
         return prev_blsec_obj
 
     def get_prev_pass_train_arr_time(self, t_ind, next_event_tr_id):
