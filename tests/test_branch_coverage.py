@@ -13,6 +13,8 @@ docs/event-manager-design.md stage 4 moved the decision itself
 directly unit-testable against synthetic block sections instead -- see
 tests/test_sibling_redirect.py.
 """
+import pandas as pd
+
 from iidsim.engine import run_simulation
 
 from .scenarios import (
@@ -38,13 +40,19 @@ def _run(name, trains, capsys, **kwargs):
 
 
 def test_autoblock_headway_sequencing(tmp_path, capsys):
-    _, out = _run(
+    result, _ = _run(
         "scn_autoblock", build_autoblock_scenario(), capsys,
         output_dir=tmp_path, autoblock_stations=("smlg", "kvls"),
     )
-    assert "time taken by last train to cover 3.6km safe distance is" in out, (
+    # T2 is scheduled to depart smlg only 5 minutes after T1, but smlg_kvls_mid1 is
+    # 9km, so clearing the 3.6km safe-following distance behind T1 takes 8 minutes at
+    # their shared 27km/h scheduled speed -- T2 should be held back to depart at
+    # T1's departure + 8min (08:08), not its own planned 08:05, proving it actually hit
+    # the headway/safe-distance branch rather than departing immediately.
+    smlg_departure = result["total_schedule"]["T2_1"]["simulated"][3][0]
+    assert smlg_departure == pd.Timestamp("2025-04-01 08:08:00"), (
         "second train through the autoblock section never hit the headway/safe-distance "
-        "branch -- it should follow the first train closely enough to trigger it"
+        f"branch -- expected it held back to depart at 08:08, got {smlg_departure}"
     )
 
 

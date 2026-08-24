@@ -12,9 +12,9 @@ class block_sec():
         self.occ_ind = 0      # 0 if free, 1 if occupied
 
         stn1_obj = stn2_obj = None
-        for j in stations_list:
-            if   j.name == stn_start: stn1_obj = j
-            elif j.name == stn_end:   stn2_obj = j
+        for station in stations_list:
+            if   station.name == stn_start: stn1_obj = station
+            elif station.name == stn_end:   stn2_obj = station
         if stn1_obj is None or stn2_obj is None:
             raise ValueError(
                 f"block_sec({stn_start!r}, {stn_end!r}): one or both stations "
@@ -32,10 +32,10 @@ class block_sec():
             self.stn_west, self.stn_east = stn2_obj, stn1_obj
 
         self.stn_conns = {self.stn_west.name: [], self.stn_east.name: []}
-        for k in conns[self.stn_west.name]:
-            self.stn_conns[self.stn_west.name].append(self.name + '_' + k)
-        for l in conns[self.stn_east.name]:
-            self.stn_conns[self.stn_east.name].append(self.name + '_' + l)
+        for conn_suffix in conns[self.stn_west.name]:
+            self.stn_conns[self.stn_west.name].append(self.name + '_' + conn_suffix)
+        for conn_suffix in conns[self.stn_east.name]:
+            self.stn_conns[self.stn_east.name].append(self.name + '_' + conn_suffix)
 
         self.length = length
         self.occ_cum = 0.0  # cumulative occupancy in seconds (float avoids pd.Timedelta overflow)
@@ -85,9 +85,9 @@ class block_sec():
                 return
 
     def queue_updt(self, new_occ_inc):
-        for idx, j in enumerate(self.blsec_queue):
-            if isinstance(j, pd.Timestamp):
-                self.blsec_queue[idx] = j + new_occ_inc
+        for idx, entry in enumerate(self.blsec_queue):
+            if isinstance(entry, pd.Timestamp):
+                self.blsec_queue[idx] = entry + new_occ_inc
 
     # autoblock-section helpers
     def autoblsecsection_trains(self, train):
@@ -97,9 +97,9 @@ class block_sec():
         self.autoblsec_list.pop(0)
 
     def autoblsecsection_trains_updt(self, new_occ_inc):
-        for idx, j in enumerate(self.autoblsec_list):
-            for i in range(3, len(j)):
-                self.autoblsec_list[idx][i] = j[i] + new_occ_inc
+        for idx, entry in enumerate(self.autoblsec_list):
+            for field_idx in range(3, len(entry)):
+                self.autoblsec_list[idx][field_idx] = entry[field_idx] + new_occ_inc
 
     def find_free_sibling(self, blsec_lookup, stn_obj=None, stn_line_name=None, train_dir=None):
         """A free parallel block section (same station pair, different direction-suffix)
@@ -166,16 +166,11 @@ class block_sec():
         duplicated, for the same reason as assign_line/update_queue_priority: this
         class doesn't own engine-wide state.
         """
-        print('auto block section name is ', self.name)
         if (stn0.name and stn1.name) in autoblock_stations:
-            print('inside the autoblock section case')
             if len(self.autoblsec_list) < 1:
                 start_time = t
                 end_time = sched_act[next_event_tr_id][t_ind + 2]
-                print('blsec_t.length=', self.length)
-                print('duration=', end_time - start_time)
                 speed = self.length / ((end_time - start_time).total_seconds() / 3600)
-                print('calculated speed for autoblock section is ', speed)
                 self.autoblsecsection_trains([next_event_tr_id, speed, t_ind + 2, start_time, end_time])
                 tr_sched_updt_fn(t, next_event_type)
                 sched_act[next_event_tr_id][t_ind] = pd.Timestamp('2100-06-01 22:52:00')
@@ -183,23 +178,13 @@ class block_sec():
                 stn0.set_occ_conn_out(next_event_conn, train.train_id, 1)
                 stn0.set_occupancy_dep(stn_line_occ_name, t)
                 total_schedule[next_event_tr_id]['simulated'].append([t])
-                print('autoblock section case list', self.autoblsec_list)
             elif len(self.autoblsec_list) >= 1:
                 last_train_speed = self.autoblsec_list[-1][1]
-                print('blsec_t.length=', self.length)
-                print('duration=', sched_act[next_event_tr_id][t_ind + 2] - t)
                 current_train_speed = self.length / ((sched_act[next_event_tr_id][t_ind + 2] - t).total_seconds() / 3600)
-                print('last train speed in autoblock section is ', last_train_speed, 'current train speed is ', current_train_speed)
                 time_taken_by_last_train = 3.6 / last_train_speed
-                print('time taken by last train to cover 3.6km safe distance is ', time_taken_by_last_train, ' hr')
-                print(pd.Timedelta(hours=time_taken_by_last_train), pd.Timedelta(hours=time_taken_by_last_train).total_seconds() / 60)
-                print(self.autoblsec_list[-1][3], type(self.autoblsec_list[-1][3]))
                 last_train_time_to_safe_distance = self.autoblsec_list[-1][3] + pd.Timedelta(hours=time_taken_by_last_train)
-                print('delay in minutes is', pd.Timedelta(hours=time_taken_by_last_train).total_seconds() / 60)
-                print('last train time to safe distance is ', last_train_time_to_safe_distance)
                 if train.tr_type == 'p':
                     if last_train_speed > current_train_speed:
-                        print('inside the condition when last train speed > current train speed')
                         if t >= last_train_time_to_safe_distance:
                             blsec_start_time = t
                             end_time = sched_act[next_event_tr_id][t_ind + 2]
@@ -210,17 +195,13 @@ class block_sec():
                             stn0.set_occupancy_dep(stn_line_occ_name, t)
                             stn0.set_occ_conn_out(next_event_conn, train.train_id, 1)
                             tr_sched_updt_fn(t, next_event_type)
-                            print('autoblock section list', self.autoblsec_list)
                             total_schedule[next_event_tr_id]['simulated'].append([t])
                         else:
-                            print('Case of departure delay')
                             dept_time = last_train_time_to_safe_distance
                             stn0.set_occupancy_updt(stn_line_occ_name, dept_time)
                             sched_updt_fn(dept_time, t_ind, next_event_tr_id)
                             tr_sched_updt_fn(dept_time, next_event_type)
-                            print('autoblock section list', self.autoblsec_list)
                     elif last_train_speed == current_train_speed:
-                        print('inside the condition when last train speed = current train speed')
                         if t >= last_train_time_to_safe_distance:
                             blsec_start_time = t
                             end_time = sched_act[next_event_tr_id][t_ind + 2]
@@ -231,27 +212,17 @@ class block_sec():
                             stn0.set_occupancy_dep(stn_line_occ_name, t)
                             stn0.set_occ_conn_out(next_event_conn, train.train_id, 1)
                             tr_sched_updt_fn(t, next_event_type)
-                            print('autoblock section list', self.autoblsec_list)
                             total_schedule[next_event_tr_id]['simulated'].append([t])
                         else:
                             dept_time = last_train_time_to_safe_distance
                             stn0.set_occupancy_updt(stn_line_occ_name, dept_time)
                             sched_updt_fn(dept_time, t_ind, next_event_tr_id)
                             tr_sched_updt_fn(t, next_event_type)
-                            print('autoblock section list', self.autoblsec_list)
                     elif last_train_speed < current_train_speed:
-                        print('inside the condition when last train spped < current train speed')
-                        t_d1 = pd.Timestamp(self.autoblsec_list[-1][3])
-                        print('t_d1 value is ', t_d1)
-                        print('t_d1 is which is previous trains dept time is', t_d1)
-                        print('type of t_d1 is', type(t_d1))
-                        t_d2 = t_d1 + pd.Timedelta(hours=self.length / last_train_speed - (self.length - headway_distance) / current_train_speed)
-                        print('calculated t_d2 is ', t_d2)
-                        print('type of t_d2 is', type(t_d2))
+                        last_train_departure_time = pd.Timestamp(self.autoblsec_list[-1][3])
+                        earliest_safe_departure_time = last_train_departure_time + pd.Timedelta(hours=self.length / last_train_speed - (self.length - headway_distance) / current_train_speed)
                         speed = self.length / ((sched_act[next_event_tr_id][t_ind + 2] - t).total_seconds() / 3600)
-                        print('calculated speed for autoblock section is ', speed)
-                        if t_d2 <= t:
-                            print('case when t_d2 <= t')
+                        if earliest_safe_departure_time <= t:
                             blsec_start_time = t
                             sched_act[next_event_tr_id][t_ind] = pd.Timestamp('2100-06-01 22:50:00')
                             end_time = sched_act[next_event_tr_id][t_ind + 2]
@@ -259,18 +230,14 @@ class block_sec():
                             stn0.set_occ_conn_out(next_event_conn, train.train_id, 1)
                             self.autoblsecsection_trains([next_event_tr_id, speed, t_ind + 2, blsec_start_time, end_time])
                             tr_sched_updt_fn(t, next_event_type)
-                            print('train added in autoblock section list is ', self.autoblsec_list)
                             total_schedule[next_event_tr_id]['simulated'].append([t])
                         else:
-                            print('case when t_d2 > t; means train got delayed')
-                            dept_time = t_d2
+                            dept_time = earliest_safe_departure_time
                             stn0.set_occupancy_updt(stn_line_occ_name, dept_time)
                             sched_updt_fn(dept_time, t_ind, next_event_tr_id)
                             tr_sched_updt_fn(dept_time, next_event_type)
                 if train.tr_type == 'g':
-                    print('Given train is Goods')
                     if last_train_speed > current_train_speed:
-                        print('inside the condition when last train speed > current train speed')
                         if t >= last_train_time_to_safe_distance:
                             blsec_start_time = t
                             end_time = sched_act[next_event_tr_id][t_ind + 2]
@@ -281,16 +248,13 @@ class block_sec():
                             stn0.set_occupancy_dep(stn_line_occ_name, t)
                             stn0.set_occ_conn_out(next_event_conn, train.train_id, 1)
                             tr_sched_updt_fn(t, next_event_type)
-                            print('autoblock section list', self.autoblsec_list)
                             total_schedule[next_event_tr_id]['simulated'].append([t])
                         else:
                             dept_time = last_train_time_to_safe_distance
                             stn0.set_occupancy_updt(stn_line_occ_name, dept_time)
                             sched_updt_fn(dept_time, t_ind, next_event_tr_id)
                             tr_sched_updt_fn(dept_time, next_event_type)
-                            print('autoblock section list', self.autoblsec_list)
                     elif last_train_speed == current_train_speed:
-                        print('inside the condition when last train speed = current train speed')
                         if t >= last_train_time_to_safe_distance:
                             blsec_start_time = t
                             end_time = sched_act[next_event_tr_id][t_ind + 2]
@@ -301,26 +265,17 @@ class block_sec():
                             stn0.set_occupancy_dep(stn_line_occ_name, t)
                             stn0.set_occ_conn_out(next_event_conn, train.train_id, 1)
                             tr_sched_updt_fn(t, next_event_type)
-                            print('autoblock section list', self.autoblsec_list)
                             total_schedule[next_event_tr_id]['simulated'].append([t])
                         else:
                             dept_time = last_train_time_to_safe_distance
                             stn0.set_occupancy_updt(stn_line_occ_name, dept_time)
                             sched_updt_fn(dept_time, t_ind, next_event_tr_id)
                             tr_sched_updt_fn(t, next_event_type)
-                            print('autoblock section list', self.autoblsec_list)
                     elif last_train_speed < current_train_speed:
-                        print('inside the condition when last train spped < current train speed')
-                        t_d1 = pd.Timestamp(self.autoblsec_list[-1][3])
-                        print('t_d1 is which is previous trains dept time is', t_d1)
-                        print('type of t_d1 is', type(t_d1))
-                        t_d2 = t_d1 + pd.Timedelta(hours=self.length / last_train_speed - (self.length - headway_distance) / current_train_speed)
-                        print('calculated t_d2 is ', t_d2)
-                        print('type of t_d2 is', type(t_d2))
+                        last_train_departure_time = pd.Timestamp(self.autoblsec_list[-1][3])
+                        earliest_safe_departure_time = last_train_departure_time + pd.Timedelta(hours=self.length / last_train_speed - (self.length - headway_distance) / current_train_speed)
                         speed = self.length / ((sched_act[next_event_tr_id][t_ind + 2] - t).total_seconds() / 3600)
-                        print('calculated speed for autoblock section is ', speed)
-                        if t_d2 <= t:
-                            print('case when t_d2 <= t')
+                        if earliest_safe_departure_time <= t:
                             blsec_start_time = t
                             sched_act[next_event_tr_id][t_ind] = pd.Timestamp('2100-06-01 22:50:00')
                             end_time = sched_act[next_event_tr_id][t_ind + 2]
@@ -328,11 +283,9 @@ class block_sec():
                             stn0.set_occ_conn_out(next_event_conn, train.train_id, 1)
                             self.autoblsecsection_trains([next_event_tr_id, speed, t_ind + 2, blsec_start_time, end_time])
                             tr_sched_updt_fn(t, next_event_type)
-                            print('train added in autoblock section list is ', self.autoblsec_list)
                             total_schedule[next_event_tr_id]['simulated'].append([t])
                         else:
-                            print('case when t_d2 > t; means train got delayed')
-                            dept_time = t_d2
+                            dept_time = earliest_safe_departure_time
                             stn0.set_occupancy_updt(stn_line_occ_name, dept_time)
                             sched_updt_fn(dept_time, t_ind, next_event_tr_id)
                             tr_sched_updt_fn(dept_time, next_event_type)
@@ -375,9 +328,6 @@ class block_sec():
                 sched_updt_fn(gq[4], t_ind_queue, tr_id)
                 stn_line_stn0 = get_stnline_dep_fn([stn0, stn1], gq[1])
                 stn_line_stn1 = get_stnline_arr_fn([stn0, stn1], gq[1])
-                print('gq[1] value is ', gq[1])
-                print('gq value is ', gq)
-                print('inside goods train upt function; get_train_stnline stn0:', stn_line_stn0, 'stn1:', stn_line_stn1)
                 if stn_line_stn0 is not None:
                     stn0.set_occupancy_updt(stn_line_stn0, gq[5])
                 elif stn_line_stn1 is not None:
@@ -406,14 +356,10 @@ class block_sec():
         next_is_single = count_next_blsec == 1
         ready_to_dept = True
         if curr_is_single and next_is_single:
-            print('both current and next block sections are single line')
             if free_stn_lines >= 2:
                 ready_to_dept = True
             elif free_stn_lines == 1:
-                print('one stn line is free block')
                 blsec_obj, blsec_dir = next_blsec_list[0]
-                print('next block section occupancy status is ', next_blsec_list[0])
-                print('dir and block is', blsec_dir, current_train_dir, blsec_obj.occ_ind)
                 if blsec_obj.occ_ind == 0:
                     ready_to_dept = True
                 elif blsec_dir == current_train_dir and blsec_obj.occ_ind == 1:
@@ -432,7 +378,6 @@ class block_sec():
                     else:
                         ready_to_dept = False
         elif curr_is_single and (not next_is_single):
-            print('current block section is single line and next block section is double line')
             if free_stn_lines >= 2:
                 ready_to_dept = True
             elif free_stn_lines == 1:
@@ -445,20 +390,16 @@ class block_sec():
                 elif same_dir_blsec_count >= 1:
                     ready_to_dept = True
                 else:
-                    print('the only free station line is occupied by an oncoming train and both lines of the next block section are occupied by oncoming trains, so we need to wait at the station')
                     ready_to_dept = False
             elif free_stn_lines == 0 and same_dir_stn_count == 0:
-                print('all station lines are occupied by opposing trains, so we need to wait at the station')
                 ready_to_dept = False
             elif free_stn_lines == 0 and same_dir_stn_count >= 1:
                 same_dir_blsec_count = sum((1 for b in next_blsec_list if b[1] == current_train_dir))
                 if same_dir_blsec_count >= 1:
                     ready_to_dept = True
                 else:
-                    print('all station lines are occupied by opposing trains, but at least one train has same direction as given train and both lines of the next block section are occupied by oncoming trains, so we need to wait at the station')
                     ready_to_dept = False
         elif not curr_is_single and next_is_single:
-            print('current block section is double line and next block section is single line')
             if free_stn_lines >= 2:
                 ready_to_dept = True
             elif free_stn_lines == 1:
@@ -468,11 +409,9 @@ class block_sec():
                 elif blsec_dir == current_train_dir:
                     ready_to_dept = True
                 else:
-                    print('the only free station line is occupied by an oncoming train and the next block section is single line occupied by an oncoming train, so we need to wait at the station')
                     ready_to_dept = False
             elif free_stn_lines == 0:
                 if same_dir_stn_count == 0:
-                    print('all station lines are occupied by opposing trains, so we need to wait at the station')
                     ready_to_dept = False
                 else:
                     blsec_obj, blsec_dir = next_blsec_list[0]
@@ -481,7 +420,6 @@ class block_sec():
                     elif blsec_dir == current_train_dir:
                         ready_to_dept = True
                     else:
-                        print('the only free station line is occupied by an oncoming train and the next block section is single line occupied by an oncoming train, so we need to wait at the station')
                         ready_to_dept = False
         elif ready_to_dept is False:
             pass  # unreachable given ready_to_dept starts True and no prior branch
@@ -492,5 +430,4 @@ class block_sec():
             # case, via the same latent fallthrough the original had.
         else:
             ready_to_dept = True
-            print('single line block section case is not found ready to depart True')
         return ready_to_dept
