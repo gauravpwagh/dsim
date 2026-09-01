@@ -18,7 +18,7 @@ class train():
         self.instance_index = instance_index
     
 
-    def calc_tr_stats(self): #method for computing statistics at individual train level
+    def calc_train_statistics(self): #method for computing statistics at individual train level
         total_deviation = pd.Timedelta(0)
         total_earliness = pd.Timedelta(0)
         total_tardiness = pd.Timedelta(0)

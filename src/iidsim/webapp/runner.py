@@ -24,14 +24,14 @@ ON_TIME_THRESHOLD_MIN = 5
 
 
 def _compute_performance_stats(trains):
-    """Per-train punctuality stats, derived entirely from train.calc_tr_stats()
+    """Per-train punctuality stats, derived entirely from train.calc_train_statistics()
     (src/iidsim/domain/train.py) -- the same computation the engine already runs
     and prints per train at the end of every simulation, just never surfaced
     anywhere structured. Read-only over already-finished train objects, so this
     needs no engine changes and can't affect the simulation itself."""
     per_train = []
     for tr in trains:
-        stats = tr.calc_tr_stats()
+        stats = tr.calc_train_statistics()
         tardiness_min = stats["overall tardiness"].total_seconds() / 60
         earliness_min = stats["overall earlyness"].total_seconds() / 60
         planned_arr = tr.tr_schedule[tr.tr_destination][0]
