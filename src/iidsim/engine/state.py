@@ -8,10 +8,8 @@ import pandas as pd
 # from scipy import stats as _halt_dev_stats
 # from openpyxl.styles import Alignment, Font
 import iidsim.network as _network
-from iidsim.network import routes
 from iidsim import schedules
 from iidsim.data import geography, halt_deviation, timing
-from iidsim.domain import Segment
 # from iidsim.reporting.chart import plot_railway_chart
 # from iidsim.reporting.extract import filter_df_by_date_window, get_formatted_data_from_df
 
@@ -73,26 +71,25 @@ class SimulationState:
         for b in self.blocksections_list:
             self.blsec_by_station.setdefault(b.stn_west.name, []).append(b)
             self.blsec_by_station.setdefault(b.stn_east.name, []).append(b)
-        # {'stn_west_stn_east': Segment} -- one Segment per station pair, wrapping
-        # the same line objects already grouped in blsec_by_pair. Gives that grouping
-        # a name and identity (endpoints, length, up/down direction) instead of
-        # leaving it as an anonymous index, without changing how any existing line
-        # object behaves. Named segments_by_pair, not segments -- self.segments is
-        # already taken below (network_section's chart station-pair distances).
-        # self.direction_of_travel() (resolve.py) is what actually reads this, on
-        # behalf of every travel-direction decision in the engine -- see
-        # docs/segment-redesign.md. stn_up/stn_down come from routes.branch_order()
-        # (the per-branch "sequence from headquarters" lists) -- independent of the
-        # longitude-derived stn_west/stn_east above. None/None for a pair no branch
-        # list covers (doesn't happen for any of the 92 real segments today, but
-        # direction_of_travel() refuses to guess for that segment rather than
-        # raising here).
-        _branch_order = routes.branch_order()
-        self.segments_by_pair = {}
-        for base, lines in self.blsec_by_pair.items():
-            up_down = _branch_order.get(frozenset((lines[0].stn_west.name, lines[0].stn_east.name)))
-            stn_up, stn_down = up_down if up_down is not None else (None, None)
-            self.segments_by_pair[base] = Segment(base, lines, stn_up=stn_up, stn_down=stn_down)
+        # {'stn_west_stn_east': Segment} -- one Segment per station pair. As of
+        # docs/segment-redesign.md stage 4/5, these are the *same* Segment objects
+        # network/__init__.py already built once, at import time, from the boards'
+        # own Segment.new()/add_line() calls -- taken directly here rather than
+        # re-derived (grouped, re-validated, stn_up/stn_down re-looked-up) fresh on
+        # every single Simulation() call the way earlier stages did. self.
+        # direction_of_travel() (resolve.py) is what actually reads this, on behalf
+        # of every travel-direction decision in the engine. Named segments_by_pair,
+        # not segments -- self.segments is already taken below (network_section's
+        # chart station-pair distances).
+        #
+        # Deliberately NOT the source for blsec_by_pair above: a Segment's .lines
+        # (here) can include a line that was built but never added to
+        # blocksections_list (one known case, vbl_dnv_mid1 -- see
+        # network/__init__.py's merge-validation comment) -- blsec_by_pair must
+        # keep excluding it, since that's what every candidate-resolution call site
+        # (blsec_id, etc.) has always done, so it stays sourced from
+        # blocksections_list independently rather than from segments_by_pair.lines.
+        self.segments_by_pair = _network.segments_by_pair
         if use_halt_deviation:
             self.halt_dev_fits_g = halt_deviation.fits_for('g')
             self.halt_dev_fits_p = halt_deviation.fits_for('p')
