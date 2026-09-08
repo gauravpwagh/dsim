@@ -1,6 +1,6 @@
 # Segment redesign — design doc
 
-> **Status: done.** All four steps below are implemented and verified. This document
+> **Status: done.** All five steps below are implemented and verified. This document
 > records the design discussion and verification, the same way
 > [event-manager-design.md](event-manager-design.md) does for that (larger, earlier)
 > redesign.
@@ -67,7 +67,7 @@ fix for that, not just a check for it.
   an edge case; this was a pure refactor, verified via the full test suite before
   proceeding, not a behavior change.
 
-## 3. The four steps
+## 3. The five steps
 
 ### Step 1 — `Segment`: a named object over the existing grouping
 
@@ -84,8 +84,9 @@ objects (`dn1`/`up1` can be simultaneously occupied by two different trains; tha
 never become a segment-level fact). `Segment.lines_for_direction(direction)` mirrors the
 direction-compatible filter `blsec_id()` already applied inline.
 
-Built once per run in `SimulationState.__init__`, as `self.segments_by_pair`, alongside
-the existing `self.blsec_by_pair`.
+Originally built once *per run*, in `SimulationState.__init__`, as `self.segments_by_pair`,
+alongside the existing `self.blsec_by_pair` — step 5 below moved this to once *ever*, at
+network-import time.
 
 ### Step 2 — `stn_up` / `stn_down`: direction from branch order, not longitude
 
@@ -172,6 +173,48 @@ manual-transcription-style error to creep in during the rewrite itself. 5 furthe
 in `krpu_ktv.py`) and were deliberately left untouched, still text, not executed either
 way.
 
+### Step 5 — stop re-deriving `Segment` objects on every `Simulation()` call
+
+Step 4 fixed the raw data, but `state.py` didn't know that yet — `SimulationState.__init__`
+still re-grouped `blocksections_list` into `blsec_by_pair` and reconstructed *fresh*
+`Segment` objects (with a fresh `routes.branch_order()` lookup for `stn_up`/`stn_down`)
+on every single `Simulation()` call, throwing away the grouping the board files had
+already built correctly once, at import time, via `Segment.new()`/`add_line()`.
+
+Each board file now also exports `segments_by_pair` (`{base_name: Segment}`), built by
+registering every `Segment.new(...)` result as it's created — one extra line
+(`segments_by_pair[_seg_X.name] = _seg_X`) right after each declaration, added by a
+second, much smaller targeted script (the files were already in step 4's exact syntactic
+shape by this point, so a simple line-pattern match was enough — no AST needed this
+time). `network/__init__.py` merges the three boards' `segments_by_pair` dicts plus the
+two inter-board bridges' segments into one, once, checking directly for station-pair key
+collisions across boards first (none exist — verified, not assumed) rather than risking
+a silent dict-overwrite. `state.py` then just does `self.segments_by_pair =
+_network.segments_by_pair` — no re-grouping, no reconstruction, no re-validation.
+
+`Segment.__init__`'s endpoint/length check isn't dead code from this — it still runs
+exactly once per line, inside `add_line()`, at board-import time; `Simulation()` calls
+after that just reuse the same, already-validated objects.
+
+**A new, different check, and what it found.** `network/__init__.py` also gained a
+one-time cross-check: `segments_by_pair`'s lines and `blocksections_list` should be the
+exact same set of `block_sec` objects, just grouped two different ways — not a
+value-agreement check (structurally guaranteed by step 4), but a check that the merge in
+step 5 didn't *omit* or *duplicate* anything. It immediately found a real, pre-existing
+bug unrelated to this whole redesign: `krdl_vzm.py`'s `vbl_dnv` segment declares three
+lines (`dn1`/`up1`/`mid1`), but `blocksections_list` only ever included `dn1`/`up1` —
+`mid1` has been built and silently unused this whole time. Confirmed not introduced by
+this session (step 4's structural-equivalence check already proved `blocksections_list`
+is byte-for-byte unchanged from before). Discussed with the user rather than resolved
+unilaterally either way — left exactly as found, with the new check explicitly exempting
+`vbl_dnv_mid1` by name (`network/__init__.py`'s `_KNOWN_ORPHANED_LINES`) so it doesn't
+mask a *different* future omission.
+
+`self.blsec_by_pair` deliberately stays sourced from `blocksections_list`, not from
+`segments_by_pair`'s lines — switching it would have silently started including the
+orphaned `vbl_dnv_mid1` in real candidate resolution (`blsec_id()`, etc.), a genuine
+behavior change this step does not make.
+
 ## 4. Verification
 
 - **Adjacency assumption checked directly**: `direction_of_travel()` requires its two
@@ -188,12 +231,17 @@ way.
 - **Manual before/after diffs** (`git stash` the step's change, run, `git stash pop`, run
   again, compare) of the complete pickled `total_schedule`, on real multi-day corridors
   not covered by the golden test — `krdl_ktv` after step 1, `krdl_ktv` again after step
-  2, `krdl_ktv` / `sprd_vzm` / `ktv_psa` after step 3, and the same three again after step
-  4. Byte-identical every time. Between them these three corridors' trains cross every
-  one of the three rewritten boards and both hand-edited inter-board bridges (`krdl_ktv`'s
-  route ends via `mvw` → `ktv`; `sprd_vzm`'s ends via `gtlm` → `vzm`), so step 4's rewrite
-  is exercised by real train movements on every file it touched, not just re-loaded and
-  left unused.
+  2, `krdl_ktv` / `sprd_vzm` / `ktv_psa` after steps 3, 4, and 5 each. Byte-identical every
+  time. Between them these three corridors' trains cross every one of the three rewritten
+  boards and both hand-edited inter-board bridges (`krdl_ktv`'s route ends via `mvw` →
+  `ktv`; `sprd_vzm`'s ends via `gtlm` → `vzm`), so steps 4 and 5's rewrites are exercised
+  by real train movements on every file they touched, not just re-loaded and left unused.
+- **`blsec_by_pair` vs. `segments_by_pair` divergence checked directly, for step 5**:
+  confirmed in a real `Simulation` instance that `blsec_by_pair['vbl_dnv']` still excludes
+  the orphaned `mid1` line (matching pre-step-5 behavior exactly) while
+  `segments_by_pair['vbl_dnv'].lines` includes it (an accurate record of what was actually
+  built) — the deliberate asymmetry described in step 5 above, confirmed rather than
+  assumed correct.
 
 ## 5. What's still open
 
