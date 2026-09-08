@@ -2,7 +2,7 @@
 and network/krdl_vzm_blocksections_data.py during the src/ package restructure."""
 import pandas as pd
 
-from iidsim.domain import create_station_class, block_sec, populate_connections
+from iidsim.domain import create_station_class, populate_connections, Segment
 from iidsim.data.geography import station_longitudes as _station_longitudes_fn
 
 station_longitudes = _station_longitudes_fn()
@@ -141,163 +141,217 @@ stations_list = [
 # Dropped: gtlm_vzm (link to VZM board), krpu_suku (link to KRPU board), vbl_salr (branch stub).
 
 
-krdl_bchl_dn1  = block_sec('dn1', 'krdl', 'bchl', 9.14, {'krdl': ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14', 's15'], 'bchl': ['s1', 's2','s3', 's4']}, stations_list)
-krdl_bchl_up1  = block_sec('up1', 'krdl', 'bchl', 9.14, {'krdl': ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14', 's15'], 'bchl': ['s1', 's2','s3', 's4']}, stations_list)
+_seg_krdl_bchl = Segment.new('krdl', 'bchl', 9.14, stations_list)
+krdl_bchl_dn1 = _seg_krdl_bchl.add_line('dn1', {'krdl': ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14', 's15'], 'bchl': ['s1', 's2','s3', 's4']})
+krdl_bchl_up1 = _seg_krdl_bchl.add_line('up1', {'krdl': ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14', 's15'], 'bchl': ['s1', 's2','s3', 's4']})
 
-bchl_bhns_mid1 = block_sec('mid1', 'bchl', 'bhns', 9.55, {'bchl': ['s1', 's2', 's3', 's4'], 'bhns': ['s1', 's2', 's3']}, stations_list)
+_seg_bchl_bhns = Segment.new('bchl', 'bhns', 9.55, stations_list)
+bchl_bhns_mid1 = _seg_bchl_bhns.add_line('mid1', {'bchl': ['s1', 's2', 's3', 's4'], 'bhns': ['s1', 's2', 's3']})
 
-bhns_kmlr_mid1 = block_sec('mid1', 'bhns', 'kmlr', 12.43, {'bhns': ['s1', 's2', 's3'], 'kmlr': ['s1', 's2', 's3']}, stations_list)
+_seg_bhns_kmlr = Segment.new('bhns', 'kmlr', 12.43, stations_list)
+bhns_kmlr_mid1 = _seg_bhns_kmlr.add_line('mid1', {'bhns': ['s1', 's2', 's3'], 'kmlr': ['s1', 's2', 's3']})
 
-kmlr_dwz_dn1   = block_sec('dn1', 'kmlr', 'dwz', 12.35, {'kmlr': ['s1', 's2', 's3'], 'dwz': ['s3', 's4', 's5']}, stations_list)
-kmlr_dwz_up1   = block_sec('up1', 'kmlr', 'dwz', 12.35, {'kmlr': ['s1', 's2', 's3'], 'dwz': ['s1', 's2', 's4', 's5']}, stations_list)
+_seg_kmlr_dwz = Segment.new('kmlr', 'dwz', 12.35, stations_list)
+kmlr_dwz_dn1 = _seg_kmlr_dwz.add_line('dn1', {'kmlr': ['s1', 's2', 's3'], 'dwz': ['s3', 's4', 's5']})
+kmlr_dwz_up1 = _seg_kmlr_dwz.add_line('up1', {'kmlr': ['s1', 's2', 's3'], 'dwz': ['s1', 's2', 's4', 's5']})
 
-dwz_giz_dn1    = block_sec('dn1', 'dwz', 'giz', 7.32, {'dwz': ['s3', 's4', 's5'], 'giz': ['s1', 's3', 's4']}, stations_list)
-dwz_giz_up1    = block_sec('up1', 'dwz', 'giz', 7.32, {'dwz': ['s1', 's2', 's4', 's5'], 'giz': ['s1', 's2']}, stations_list)
+_seg_dwz_giz = Segment.new('dwz', 'giz', 7.32, stations_list)
+dwz_giz_dn1 = _seg_dwz_giz.add_line('dn1', {'dwz': ['s3', 's4', 's5'], 'giz': ['s1', 's3', 's4']})
+dwz_giz_up1 = _seg_dwz_giz.add_line('up1', {'dwz': ['s1', 's2', 's4', 's5'], 'giz': ['s1', 's2']})
 
-giz_dbf_dn1    = block_sec('dn1', 'giz', 'dbf', 10.99, {'giz': ['s1', 's3', 's4'], 'dbf': ['s1', 's3', 's4']}, stations_list)
-giz_dbf_up1    = block_sec('up1', 'giz', 'dbf', 10.99, {'giz': ['s1', 's2'], 'dbf': ['s1', 's2']}, stations_list)
+_seg_giz_dbf = Segment.new('giz', 'dbf', 10.99, stations_list)
+giz_dbf_dn1 = _seg_giz_dbf.add_line('dn1', {'giz': ['s1', 's3', 's4'], 'dbf': ['s1', 's3', 's4']})
+giz_dbf_up1 = _seg_giz_dbf.add_line('up1', {'giz': ['s1', 's2'], 'dbf': ['s1', 's2']})
 
-dbf_kwgn_dn1   = block_sec('dn1', 'dbf', 'kwgn', 8.99, {'dbf': ['s1', 's3', 's4'], 'kwgn': ['s1', 's3', 's4']}, stations_list)
-dbf_kwgn_up1   = block_sec('up1', 'dbf', 'kwgn', 8.99, {'dbf': ['s1', 's2'], 'kwgn': ['s1', 's2']}, stations_list)
+_seg_dbf_kwgn = Segment.new('dbf', 'kwgn', 8.99, stations_list)
+dbf_kwgn_dn1 = _seg_dbf_kwgn.add_line('dn1', {'dbf': ['s1', 's3', 's4'], 'kwgn': ['s1', 's3', 's4']})
+dbf_kwgn_up1 = _seg_dbf_kwgn.add_line('up1', {'dbf': ['s1', 's2'], 'kwgn': ['s1', 's2']})
 
-kwgn_kklu_dn1  = block_sec('dn1', 'kwgn', 'kklu', 12.13, {'kwgn': ['s1', 's3', 's4'], 'kklu': ['s3', 's4']}, stations_list)
-kwgn_kklu_up1  = block_sec('up1', 'kwgn', 'kklu', 12.13, {'kwgn': ['s1', 's2'], 'kklu': ['s1', 's2']}, stations_list)
+_seg_kwgn_kklu = Segment.new('kwgn', 'kklu', 12.13, stations_list)
+kwgn_kklu_dn1 = _seg_kwgn_kklu.add_line('dn1', {'kwgn': ['s1', 's3', 's4'], 'kklu': ['s3', 's4']})
+kwgn_kklu_up1 = _seg_kwgn_kklu.add_line('up1', {'kwgn': ['s1', 's2'], 'kklu': ['s1', 's2']})
 
-kklu_kmsd_dn1  = block_sec('dn1', 'kklu', 'kmsd', 12.04, {'kklu': ['s3', 's4'], 'kmsd': ['s1', 's3', 's4']}, stations_list)
-kklu_kmsd_up1  = block_sec('up1', 'kklu', 'kmsd', 12.04, {'kklu': ['s1', 's2'], 'kmsd': ['s1', 's2']}, stations_list)
+_seg_kklu_kmsd = Segment.new('kklu', 'kmsd', 12.04, stations_list)
+kklu_kmsd_dn1 = _seg_kklu_kmsd.add_line('dn1', {'kklu': ['s3', 's4'], 'kmsd': ['s1', 's3', 's4']})
+kklu_kmsd_up1 = _seg_kklu_kmsd.add_line('up1', {'kklu': ['s1', 's2'], 'kmsd': ['s1', 's2']})
 
-kmsd_szy_dn1   = block_sec('dn1', 'kmsd', 'szy', 9.39, {'kmsd': ['s1', 's3', 's4'], 'szy': ['s3', 's4']}, stations_list)
-kmsd_szy_up1   = block_sec('up1', 'kmsd', 'szy', 9.39, {'kmsd': ['s1', 's2'], 'szy': ['s1', 's2', 's3']}, stations_list)
+_seg_kmsd_szy = Segment.new('kmsd', 'szy', 9.39, stations_list)
+kmsd_szy_dn1 = _seg_kmsd_szy.add_line('dn1', {'kmsd': ['s1', 's3', 's4'], 'szy': ['s3', 's4']})
+kmsd_szy_up1 = _seg_kmsd_szy.add_line('up1', {'kmsd': ['s1', 's2'], 'szy': ['s1', 's2', 's3']})
 
-szy_dmk_dn1    = block_sec('dn1', 'szy', 'dmk', 11.27, {'szy': ['s3', 's4'], 'dmk': ['s3', 's4']}, stations_list)
-szy_dmk_up1    = block_sec('up1', 'szy', 'dmk', 11.27, {'szy': ['s1', 's2', 's3'], 'dmk': ['s1', 's2']}, stations_list)
+_seg_szy_dmk = Segment.new('szy', 'dmk', 11.27, stations_list)
+szy_dmk_dn1 = _seg_szy_dmk.add_line('dn1', {'szy': ['s3', 's4'], 'dmk': ['s3', 's4']})
+szy_dmk_up1 = _seg_szy_dmk.add_line('up1', {'szy': ['s1', 's2', 's3'], 'dmk': ['s1', 's2']})
 
-dmk_bdxx_dn1   = block_sec('dn1', 'dmk', 'bdxx', 11.4, {'dmk': ['s3', 's4'], 'bdxx': ['s1', 's2', 's4', 's5']}, stations_list)
-dmk_bdxx_up1   = block_sec('up1', 'dmk', 'bdxx', 11.4, {'dmk': ['s1', 's2'], 'bdxx': ['s1', 's2', 's3']}, stations_list)
+_seg_dmk_bdxx = Segment.new('dmk', 'bdxx', 11.4, stations_list)
+dmk_bdxx_dn1 = _seg_dmk_bdxx.add_line('dn1', {'dmk': ['s3', 's4'], 'bdxx': ['s1', 's2', 's4', 's5']})
+dmk_bdxx_up1 = _seg_dmk_bdxx.add_line('up1', {'dmk': ['s1', 's2'], 'bdxx': ['s1', 's2', 's3']})
 
-bdxx_tpq_dn1   = block_sec('dn1', 'bdxx', 'tpq', 5.61, {'bdxx': ['s1', 's2', 's4', 's5'], 'tpq': ['s3', 's4']}, stations_list)
-bdxx_tpq_up1   = block_sec('up1', 'bdxx', 'tpq', 5.61, {'bdxx': ['s1', 's2', 's3'], 'tpq': ['s1', 's2', 's4']}, stations_list)
+_seg_bdxx_tpq = Segment.new('bdxx', 'tpq', 5.61, stations_list)
+bdxx_tpq_dn1 = _seg_bdxx_tpq.add_line('dn1', {'bdxx': ['s1', 's2', 's4', 's5'], 'tpq': ['s3', 's4']})
+bdxx_tpq_up1 = _seg_bdxx_tpq.add_line('up1', {'bdxx': ['s1', 's2', 's3'], 'tpq': ['s1', 's2', 's4']})
 
-tpq_kmez_dn1   = block_sec('dn1', 'tpq', 'kmez', 8.3, {'tpq': ['s3', 's4'], 'kmez': ['s3', 's4']}, stations_list)
-tpq_kmez_up1   = block_sec('up1', 'tpq', 'kmez', 8.3, {'tpq': ['s1', 's2', 's4'], 'kmez': ['s1', 's2', 's4']}, stations_list)
+_seg_tpq_kmez = Segment.new('tpq', 'kmez', 8.3, stations_list)
+tpq_kmez_dn1 = _seg_tpq_kmez.add_line('dn1', {'tpq': ['s3', 's4'], 'kmez': ['s3', 's4']})
+tpq_kmez_up1 = _seg_tpq_kmez.add_line('up1', {'tpq': ['s1', 's2', 's4'], 'kmez': ['s1', 's2', 's4']})
 
-kmez_jdb_dn1   = block_sec('dn1', 'kmez', 'jdb', 8.91, {'kmez': ['s3', 's4'], 'jdb': ['s1', 's2', 's3', 's4', 's5', 's6']}, stations_list)
-kmez_jdb_up1   = block_sec('up1', 'kmez', 'jdb', 8.91, {'kmez': ['s1', 's2', 's4'], 'jdb': ['s1', 's2', 's3', 's4', 's5', 's6']}, stations_list)
+_seg_kmez_jdb = Segment.new('kmez', 'jdb', 8.91, stations_list)
+kmez_jdb_dn1 = _seg_kmez_jdb.add_line('dn1', {'kmez': ['s3', 's4'], 'jdb': ['s1', 's2', 's3', 's4', 's5', 's6']})
+kmez_jdb_up1 = _seg_kmez_jdb.add_line('up1', {'kmez': ['s1', 's2', 's4'], 'jdb': ['s1', 's2', 's3', 's4', 's5', 's6']})
 
-jdb_nkx_dn1    = block_sec('dn1', 'jdb', 'nkx', 6.45, {'jdb': ['s1', 's2', 's3', 's4', 's5', 's6'], 'nkx': ['s3', 's4']}, stations_list)
-jdb_nkx_up1    = block_sec('up1', 'jdb', 'nkx', 6.45, {'jdb': ['s1', 's2', 's3', 's4', 's5', 's6'], 'nkx': ['s1', 's2', 's4']}, stations_list)
+_seg_jdb_nkx = Segment.new('jdb', 'nkx', 6.45, stations_list)
+jdb_nkx_dn1 = _seg_jdb_nkx.add_line('dn1', {'jdb': ['s1', 's2', 's3', 's4', 's5', 's6'], 'nkx': ['s3', 's4']})
+jdb_nkx_up1 = _seg_jdb_nkx.add_line('up1', {'jdb': ['s1', 's2', 's3', 's4', 's5', 's6'], 'nkx': ['s1', 's2', 's4']})
 
-nkx_agz_dn1    = block_sec('dn1', 'nkx', 'agz', 7.9, {'nkx': ['s3', 's4'], 'agz': ['s1', 's3', 's4']}, stations_list)
-nkx_agz_up1    = block_sec('up1', 'nkx', 'agz', 7.9, {'nkx': ['s1', 's2', 's4'], 'agz': ['s1', 's2']}, stations_list)
+_seg_nkx_agz = Segment.new('nkx', 'agz', 7.9, stations_list)
+nkx_agz_dn1 = _seg_nkx_agz.add_line('dn1', {'nkx': ['s3', 's4'], 'agz': ['s1', 's3', 's4']})
+nkx_agz_up1 = _seg_nkx_agz.add_line('up1', {'nkx': ['s1', 's2', 's4'], 'agz': ['s1', 's2']})
 
-agz_agb_dn1    = block_sec('dn1', 'agz', 'agb', 10.03, {'agz': ['s1', 's3', 's4'], 'agb': ['s1', 's3', 's4']}, stations_list)
-agz_agb_up1    = block_sec('up1', 'agz', 'agb', 10.03, {'agz': ['s1', 's2'], 'agb': ['s1', 's2']}, stations_list)
+_seg_agz_agb = Segment.new('agz', 'agb', 10.03, stations_list)
+agz_agb_dn1 = _seg_agz_agb.add_line('dn1', {'agz': ['s1', 's3', 's4'], 'agb': ['s1', 's3', 's4']})
+agz_agb_up1 = _seg_agz_agb.add_line('up1', {'agz': ['s1', 's2'], 'agb': ['s1', 's2']})
 
-agb_kprr_dn1   = block_sec('dn1', 'agb', 'kprr', 7.6, {'agb': ['s1', 's3', 's4'], 'kprr': ['s3', 's4']}, stations_list)
-agb_kprr_up1   = block_sec('up1', 'agb', 'kprr', 7.6, {'agb': ['s1', 's2'], 'kprr': ['s1', 's2', 's4']}, stations_list)
+_seg_agb_kprr = Segment.new('agb', 'kprr', 7.6, stations_list)
+agb_kprr_dn1 = _seg_agb_kprr.add_line('dn1', {'agb': ['s1', 's3', 's4'], 'kprr': ['s3', 's4']})
+agb_kprr_up1 = _seg_agb_kprr.add_line('up1', {'agb': ['s1', 's2'], 'kprr': ['s1', 's2', 's4']})
 
-kprr_cjs_dn1   = block_sec('dn1', 'kprr', 'cjs', 11.71, {'kprr': ['s3', 's4'], 'cjs': ['s3', 's4']}, stations_list)
-kprr_cjs_up1   = block_sec('up1', 'kprr', 'cjs', 11.71, {'kprr': ['s1', 's2', 's4'], 'cjs': ['s1', 's2', 's4']}, stations_list)
+_seg_kprr_cjs = Segment.new('kprr', 'cjs', 11.71, stations_list)
+kprr_cjs_dn1 = _seg_kprr_cjs.add_line('dn1', {'kprr': ['s3', 's4'], 'cjs': ['s3', 's4']})
+kprr_cjs_up1 = _seg_kprr_cjs.add_line('up1', {'kprr': ['s1', 's2', 's4'], 'cjs': ['s1', 's2', 's4']})
 
-cjs_kdpa_dn1   = block_sec('dn1', 'cjs', 'kdpa', 6.99, {'cjs': ['s3', 's4'], 'kdpa': ['s1', 's3', 's4']}, stations_list)
-cjs_kdpa_up1   = block_sec('up1', 'cjs', 'kdpa', 6.99, {'cjs': ['s1', 's2', 's4'], 'kdpa': ['s1', 's2']}, stations_list)
+_seg_cjs_kdpa = Segment.new('cjs', 'kdpa', 6.99, stations_list)
+cjs_kdpa_dn1 = _seg_cjs_kdpa.add_line('dn1', {'cjs': ['s3', 's4'], 'kdpa': ['s1', 's3', 's4']})
+cjs_kdpa_up1 = _seg_cjs_kdpa.add_line('up1', {'cjs': ['s1', 's2', 's4'], 'kdpa': ['s1', 's2']})
 
-kdpa_dir_dn1   = block_sec('dn1', 'kdpa', 'dir', 6.64, {'kdpa': ['s1', 's3', 's4'], 'dir': ['s3', 's4']}, stations_list)
-kdpa_dir_up1   = block_sec('up1', 'kdpa', 'dir', 6.64, {'kdpa': ['s1', 's2'], 'dir': ['s1', 's2', 's4']}, stations_list)
+_seg_kdpa_dir = Segment.new('kdpa', 'dir', 6.64, stations_list)
+kdpa_dir_dn1 = _seg_kdpa_dir.add_line('dn1', {'kdpa': ['s1', 's3', 's4'], 'dir': ['s3', 's4']})
+kdpa_dir_up1 = _seg_kdpa_dir.add_line('up1', {'kdpa': ['s1', 's2'], 'dir': ['s1', 's2', 's4']})
 
-dir_jyp_dn1    = block_sec('dn1', 'dir', 'jyp', 7.07, {'dir': ['s3', 's4'], 'jyp': ['s1', 's3', 's4', 's5']}, stations_list)
-dir_jyp_up1    = block_sec('up1', 'dir', 'jyp', 7.07, {'dir': ['s1', 's2', 's4'], 'jyp': ['s1', 's2', 's4', 's5']}, stations_list)
+_seg_dir_jyp = Segment.new('dir', 'jyp', 7.07, stations_list)
+dir_jyp_dn1 = _seg_dir_jyp.add_line('dn1', {'dir': ['s3', 's4'], 'jyp': ['s1', 's3', 's4', 's5']})
+dir_jyp_up1 = _seg_dir_jyp.add_line('up1', {'dir': ['s1', 's2', 's4'], 'jyp': ['s1', 's2', 's4', 's5']})
 
-jyp_cts_dn1    = block_sec('dn1', 'jyp', 'cts', 7.09, {'jyp': ['s1', 's3', 's4', 's5'], 'cts': ['s3', 's4']}, stations_list)
-jyp_cts_up1    = block_sec('up1', 'jyp', 'cts', 7.09, {'jyp': ['s1', 's2', 's4', 's5'], 'cts': ['s1', 's2', 's3']}, stations_list)
+_seg_jyp_cts = Segment.new('jyp', 'cts', 7.09, stations_list)
+jyp_cts_dn1 = _seg_jyp_cts.add_line('dn1', {'jyp': ['s1', 's3', 's4', 's5'], 'cts': ['s3', 's4']})
+jyp_cts_up1 = _seg_jyp_cts.add_line('up1', {'jyp': ['s1', 's2', 's4', 's5'], 'cts': ['s1', 's2', 's3']})
 
-cts_mvg_dn1    = block_sec('dn1', 'cts', 'mvg', 6.95, {'cts': ['s3', 's4'], 'mvg': ['s1', 's2', 's3']}, stations_list)
-cts_mvg_up1    = block_sec('up1', 'cts', 'mvg', 6.95, {'cts': ['s1', 's2', 's3'], 'mvg': ['s1', 's2', 's3']}, stations_list)
+_seg_cts_mvg = Segment.new('cts', 'mvg', 6.95, stations_list)
+cts_mvg_dn1 = _seg_cts_mvg.add_line('dn1', {'cts': ['s3', 's4'], 'mvg': ['s1', 's2', 's3']})
+cts_mvg_up1 = _seg_cts_mvg.add_line('up1', {'cts': ['s1', 's2', 's3'], 'mvg': ['s1', 's2', 's3']})
 
-mvg_jrt_mid1   = block_sec('mid1', 'mvg', 'jrt', 11.4, {'mvg': ['s1', 's2', 's3'], 'jrt': ['s1', 's2', 's3']}, stations_list)
+_seg_mvg_jrt = Segment.new('mvg', 'jrt', 11.4, stations_list)
+mvg_jrt_mid1 = _seg_mvg_jrt.add_line('mid1', {'mvg': ['s1', 's2', 's3'], 'jrt': ['s1', 's2', 's3']})
 
-jrt_mvf_mid1   = block_sec('mid1', 'jrt', 'mvf', 9.21, {'jrt': ['s1', 's2', 's3'], 'mvf': ['s1', 's2', 's3', 's4']}, stations_list)
+_seg_jrt_mvf = Segment.new('jrt', 'mvf', 9.21, stations_list)
+jrt_mvf_mid1 = _seg_jrt_mvf.add_line('mid1', {'jrt': ['s1', 's2', 's3'], 'mvf': ['s1', 's2', 's3', 's4']})
 
-mvf_krpu_dn1   = block_sec('dn1', 'mvf', 'krpu', 6.83, {'mvf': ['s1', 's2', 's3', 's4'], 'krpu': ['s1', 's3', 's4', 's5', 's6', 's7', 's8']}, stations_list)
-mvf_krpu_up1   = block_sec('up1', 'mvf', 'krpu', 6.83, {'mvf': ['s1', 's2', 's3', 's4'], 'krpu': ['s1', 's2', 's4', 's5', 's6', 's7', 's8']}, stations_list)
+_seg_mvf_krpu = Segment.new('mvf', 'krpu', 6.83, stations_list)
+mvf_krpu_dn1 = _seg_mvf_krpu.add_line('dn1', {'mvf': ['s1', 's2', 's3', 's4'], 'krpu': ['s1', 's3', 's4', 's5', 's6', 's7', 's8']})
+mvf_krpu_up1 = _seg_mvf_krpu.add_line('up1', {'mvf': ['s1', 's2', 's3', 's4'], 'krpu': ['s1', 's2', 's4', 's5', 's6', 's7', 's8']})
 
-krpu_dmrt_dn1  = block_sec('dn1', 'krpu', 'dmrt', 10.78, {'krpu': ['s1', 's3', 's4', 's5', 's6', 's7', 's8'], 'dmrt': ['s1', 's3', 's2', 's5']}, stations_list)
-krpu_dmrt_up1  = block_sec('up1', 'krpu', 'dmrt', 10.78, {'krpu': ['s1', 's3', 's4', 's5', 's6', 's7', 's8'], 'dmrt': ['s1','s3', 's4', 's5']}, stations_list)
+_seg_krpu_dmrt = Segment.new('krpu', 'dmrt', 10.78, stations_list)
+krpu_dmrt_dn1 = _seg_krpu_dmrt.add_line('dn1', {'krpu': ['s1', 's3', 's4', 's5', 's6', 's7', 's8'], 'dmrt': ['s1', 's3', 's2', 's5']})
+krpu_dmrt_up1 = _seg_krpu_dmrt.add_line('up1', {'krpu': ['s1', 's3', 's4', 's5', 's6', 's7', 's8'], 'dmrt': ['s1','s3', 's4', 's5']})
 
-dmrt_dmnj_dn1  = block_sec('dn1', 'dmrt', 'dmnj', 8.12, {'dmrt': ['s1', 's2','s4', 's5'], 'dmnj': ['s1', 's2', 's4', 's5', 's6', 's7', 's8', 's9', 's10']}, stations_list)
-dmrt_dmnj_up1  = block_sec('up1', 'dmrt', 'dmnj', 8.12, {'dmrt': ['s1', 's3', 's4', 's5'], 'dmnj': ['s3', 's4', 's5', 's6', 's7', 's8', 's9', 's10']}, stations_list)
+_seg_dmrt_dmnj = Segment.new('dmrt', 'dmnj', 8.12, stations_list)
+dmrt_dmnj_dn1 = _seg_dmrt_dmnj.add_line('dn1', {'dmrt': ['s1', 's2','s4', 's5'], 'dmnj': ['s1', 's2', 's4', 's5', 's6', 's7', 's8', 's9', 's10']})
+dmrt_dmnj_up1 = _seg_dmrt_dmnj.add_line('up1', {'dmrt': ['s1', 's3', 's4', 's5'], 'dmnj': ['s3', 's4', 's5', 's6', 's7', 's8', 's9', 's10']})
  
-dmnj_bgua_dn1  = block_sec('dn1', 'dmnj', 'bgua', 14.55, {'dmnj': ['s1', 's2', 's4', 's5', 's6', 's7', 's8', 's9', 's10'], 'bgua': ['s1', 's2']}, stations_list)
-dmnj_bgua_up1  = block_sec('up1', 'dmnj', 'bgua', 14.55, {'dmnj': ['s3', 's4', 's5', 's6', 's7', 's8', 's9', 's10'], 'bgua': ['s2', 's3', 's4']}, stations_list)
+_seg_dmnj_bgua = Segment.new('dmnj', 'bgua', 14.55, stations_list)
+dmnj_bgua_dn1 = _seg_dmnj_bgua.add_line('dn1', {'dmnj': ['s1', 's2', 's4', 's5', 's6', 's7', 's8', 's9', 's10'], 'bgua': ['s1', 's2']})
+dmnj_bgua_up1 = _seg_dmnj_bgua.add_line('up1', {'dmnj': ['s3', 's4', 's5', 's6', 's7', 's8', 's9', 's10'], 'bgua': ['s2', 's3', 's4']})
 
-bgua_kkgm_mid1 = block_sec('mid1', 'bgua', 'kkgm', 12.44, {'bgua': ['s1', 's2', 's3', 's4'], 'kkgm': ['s1', 's2', 's3', 's4']}, stations_list)
+_seg_bgua_kkgm = Segment.new('bgua', 'kkgm', 12.44, stations_list)
+bgua_kkgm_mid1 = _seg_bgua_kkgm.add_line('mid1', {'bgua': ['s1', 's2', 's3', 's4'], 'kkgm': ['s1', 's2', 's3', 's4']})
 
-kkgm_lkmr_mid1 = block_sec('mid1', 'kkgm', 'lkmr', 15.28, {'kkgm': ['s1', 's2', 's3', 's4'], 'lkmr': ['s1', 's2', 's3', 's4']}, stations_list)
+_seg_kkgm_lkmr = Segment.new('kkgm', 'lkmr', 15.28, stations_list)
+kkgm_lkmr_mid1 = _seg_kkgm_lkmr.add_line('mid1', {'kkgm': ['s1', 's2', 's3', 's4'], 'lkmr': ['s1', 's2', 's3', 's4']})
 
-lkmr_sgrm_dn1  = block_sec('dn1', 'lkmr', 'sgrm', 12.83, {'lkmr': ['s1', 's2'], 'sgrm': ['s1', 's2']}, stations_list)
-lkmr_sgrm_up1  = block_sec('up1', 'lkmr', 'sgrm', 12.83, {'lkmr': ['s1', 's3', 's4'], 'sgrm': ['s1', 's3', 's4']}, stations_list)
+_seg_lkmr_sgrm = Segment.new('lkmr', 'sgrm', 12.83, stations_list)
+lkmr_sgrm_dn1 = _seg_lkmr_sgrm.add_line('dn1', {'lkmr': ['s1', 's2'], 'sgrm': ['s1', 's2']})
+lkmr_sgrm_up1 = _seg_lkmr_sgrm.add_line('up1', {'lkmr': ['s1', 's3', 's4'], 'sgrm': ['s1', 's3', 's4']})
 
-sgrm_tkri_dn1  = block_sec('dn1', 'sgrm', 'tkri', 9.07, {'sgrm': ['s1', 's2'], 'tkri': ['s1', 's2', 's3', 's4','s5', 's6']}, stations_list)
-sgrm_tkri_up1  = block_sec('up1', 'sgrm', 'tkri', 9.07, {'sgrm': ['s1', 's3', 's4'], 'tkri': ['s1', 's2', 's3','s4', 's5', 's6']}, stations_list)
+_seg_sgrm_tkri = Segment.new('sgrm', 'tkri', 9.07, stations_list)
+sgrm_tkri_dn1 = _seg_sgrm_tkri.add_line('dn1', {'sgrm': ['s1', 's2'], 'tkri': ['s1', 's2', 's3', 's4','s5', 's6']})
+sgrm_tkri_up1 = _seg_sgrm_tkri.add_line('up1', {'sgrm': ['s1', 's3', 's4'], 'tkri': ['s1', 's2', 's3','s4', 's5', 's6']})
 
-tkri_rul_mid1  = block_sec('mid1', 'tkri', 'rul', 12.43, {'tkri': ['s1', 's2', 's3', 's4', 's5', 's6'], 'rul': ['s1', 's2', 's3']}, stations_list)
+_seg_tkri_rul = Segment.new('tkri', 'rul', 12.43, stations_list)
+tkri_rul_mid1 = _seg_tkri_rul.add_line('mid1', {'tkri': ['s1', 's2', 's3', 's4', 's5', 's6'], 'rul': ['s1', 's2', 's3']})
 
-rul_llgm_mid1  = block_sec('mid1', 'rul', 'llgm', 16.5, {'rul': ['s1', 's2', 's3'], 'llgm': ['s1', 's2', 's3']}, stations_list)
+_seg_rul_llgm = Segment.new('rul', 'llgm', 16.5, stations_list)
+rul_llgm_mid1 = _seg_rul_llgm.add_line('mid1', {'rul': ['s1', 's2', 's3'], 'llgm': ['s1', 's2', 's3']})
 
-llgm_blmk_mid1 = block_sec('mid1', 'llgm', 'blmk', 16.93, {'llgm': ['s1', 's2', 's3'], 'blmk': ['s1', 's2', 's3']}, stations_list)
+_seg_llgm_blmk = Segment.new('llgm', 'blmk', 16.93, stations_list)
+llgm_blmk_mid1 = _seg_llgm_blmk.add_line('mid1', {'llgm': ['s1', 's2', 's3'], 'blmk': ['s1', 's2', 's3']})
 
-blmk_skpi_mid1 = block_sec('mid1', 'blmk', 'skpi', 10.4, {'blmk': ['s1', 's2', 's3'], 'skpi': ['s1', 's2', 's3']}, stations_list)
+_seg_blmk_skpi = Segment.new('blmk', 'skpi', 10.4, stations_list)
+blmk_skpi_mid1 = _seg_blmk_skpi.add_line('mid1', {'blmk': ['s1', 's2', 's3'], 'skpi': ['s1', 's2', 's3']})
 
-skpi_ktga_mid1 = block_sec('mid1', 'skpi', 'ktga', 14.77, {'skpi': ['s1', 's2', 's3'], 'ktga': ['s1', 's2', 's3', 's4']}, stations_list)
+_seg_skpi_ktga = Segment.new('skpi', 'ktga', 14.77, stations_list)
+skpi_ktga_mid1 = _seg_skpi_ktga.add_line('mid1', {'skpi': ['s1', 's2', 's3'], 'ktga': ['s1', 's2', 's3', 's4']})
 
-ktga_sprd_mid1 = block_sec('mid1', 'ktga', 'sprd', 9.63, {'ktga': ['s1', 's2', 's3', 's4'], 'sprd': ['s1', 's2', 's3', 's4', 's5']}, stations_list)
+_seg_ktga_sprd = Segment.new('ktga', 'sprd', 9.63, stations_list)
+ktga_sprd_mid1 = _seg_ktga_sprd.add_line('mid1', {'ktga': ['s1', 's2', 's3', 's4'], 'sprd': ['s1', 's2', 's3', 's4', 's5']})
 
-sprd_rgda_dn1  = block_sec('dn1', 'sprd', 'rgda', 9.23, {'sprd': ['s1', 's2', 's3','s4', 's5'], 'rgda': ['s1', 's2', 's3', 's4', 's5', 's7', 's8', 's9']}, stations_list)
-sprd_rgda_up1  = block_sec('up1', 'sprd', 'rgda', 9.23, {'sprd': ['s1', 's2', 's3','s4', 's5'], 'rgda': ['s1', 's2', 's3', 's4', 's6', 's7', 's8', 's9']}, stations_list)
-sprd_rgda_mid1 = block_sec('mid1', 'sprd', 'rgda', 9.23, {'sprd': ['s1', 's2', 's3', 's4', 's5'], 'rgda': ['s1', 's2', 's3', 's4', 's9']}, stations_list)
+_seg_sprd_rgda = Segment.new('sprd', 'rgda', 9.23, stations_list)
+sprd_rgda_dn1 = _seg_sprd_rgda.add_line('dn1', {'sprd': ['s1', 's2', 's3','s4', 's5'], 'rgda': ['s1', 's2', 's3', 's4', 's5', 's7', 's8', 's9']})
+sprd_rgda_up1 = _seg_sprd_rgda.add_line('up1', {'sprd': ['s1', 's2', 's3','s4', 's5'], 'rgda': ['s1', 's2', 's3', 's4', 's6', 's7', 's8', 's9']})
+sprd_rgda_mid1 = _seg_sprd_rgda.add_line('mid1', {'sprd': ['s1', 's2', 's3', 's4', 's5'], 'rgda': ['s1', 's2', 's3', 's4', 's9']})
 
-rgda_ldx_dn1   = block_sec('dn1', 'rgda', 'ldx', 7.82, {'rgda': ['s1', 's2', 's3', 's4', 's5', 's7', 's8', 's9'], 'ldx': ['s1', 's2']}, stations_list)
-rgda_ldx_up1   = block_sec('up1', 'rgda', 'ldx', 7.82, {'rgda': ['s1', 's2', 's3', 's4', 's6', 's7', 's8', 's9'], 'ldx': ['s1', 's3', 's4']}, stations_list)
+_seg_rgda_ldx = Segment.new('rgda', 'ldx', 7.82, stations_list)
+rgda_ldx_dn1 = _seg_rgda_ldx.add_line('dn1', {'rgda': ['s1', 's2', 's3', 's4', 's5', 's7', 's8', 's9'], 'ldx': ['s1', 's2']})
+rgda_ldx_up1 = _seg_rgda_ldx.add_line('up1', {'rgda': ['s1', 's2', 's3', 's4', 's6', 's7', 's8', 's9'], 'ldx': ['s1', 's3', 's4']})
 
-ldx_jmpt_dn1   = block_sec('dn1', 'ldx', 'jmpt', 7.18, {'ldx': ['s1', 's2'], 'jmpt': ['s1', 's2', 's4', 's5', 's6']}, stations_list)
-ldx_jmpt_up1   = block_sec('up1', 'ldx', 'jmpt', 7.18, {'ldx': ['s1', 's3', 's4'], 'jmpt': ['s3', 's4', 's5', 's6']}, stations_list) 
+_seg_ldx_jmpt = Segment.new('ldx', 'jmpt', 7.18, stations_list)
+ldx_jmpt_dn1 = _seg_ldx_jmpt.add_line('dn1', {'ldx': ['s1', 's2'], 'jmpt': ['s1', 's2', 's4', 's5', 's6']})
+ldx_jmpt_up1 = _seg_ldx_jmpt.add_line('up1', {'ldx': ['s1', 's3', 's4'], 'jmpt': ['s3', 's4', 's5', 's6']})
 
-jmpt_knrt_dn1  = block_sec('dn1', 'jmpt', 'knrt', 9.14, {'jmpt': ['s1', 's2', 's4'], 'knrt': ['s1', 's2', 's4']}, stations_list)
-jmpt_knrt_up1  = block_sec('up1', 'jmpt', 'knrt', 9.14, {'jmpt': ['s3', 's4'], 'knrt': ['s1', 's3', 's4']}, stations_list)
-jmpt_knrt_mid1 = block_sec('mid1', 'jmpt', 'knrt', 9.14, {'jmpt': [ 's4','s5', 's6'], 'knrt': ['s2','s3', 's4','s5', 's6']}, stations_list)
+_seg_jmpt_knrt = Segment.new('jmpt', 'knrt', 9.14, stations_list)
+jmpt_knrt_dn1 = _seg_jmpt_knrt.add_line('dn1', {'jmpt': ['s1', 's2', 's4'], 'knrt': ['s1', 's2', 's4']})
+jmpt_knrt_up1 = _seg_jmpt_knrt.add_line('up1', {'jmpt': ['s3', 's4'], 'knrt': ['s1', 's3', 's4']})
+jmpt_knrt_mid1 = _seg_jmpt_knrt.add_line('mid1', {'jmpt': [ 's4','s5', 's6'], 'knrt': ['s2','s3', 's4','s5', 's6']})
 
-knrt_gmda_dn1  = block_sec('dn1', 'knrt', 'gmda', 8.87, {'knrt': ['s1', 's2', 's4'], 'gmda': ['s1', 's2']}, stations_list)
-knrt_gmda_up1  = block_sec('up1', 'knrt', 'gmda', 8.87, {'knrt': [ 's1', 's3', 's4'], 'gmda': ['s1','s2', 's3', 's4']}, stations_list)
-knrt_gmda_mid1 = block_sec('mid1', 'knrt', 'gmda', 8.87, {'knrt': ['s2','s3', 's4','s5', 's6'], 'gmda': ['s1','s2','s5', 's6']}, stations_list)
+_seg_knrt_gmda = Segment.new('knrt', 'gmda', 8.87, stations_list)
+knrt_gmda_dn1 = _seg_knrt_gmda.add_line('dn1', {'knrt': ['s1', 's2', 's4'], 'gmda': ['s1', 's2']})
+knrt_gmda_up1 = _seg_knrt_gmda.add_line('up1', {'knrt': [ 's1', 's3', 's4'], 'gmda': ['s1','s2', 's3', 's4']})
+knrt_gmda_mid1 = _seg_knrt_gmda.add_line('mid1', {'knrt': ['s2','s3', 's4','s5', 's6'], 'gmda': ['s1','s2','s5', 's6']})
 # knrt_gmda_mid1 = block_sec('mid1', 'knrt', 'gmda', 8.87, {'knrt': ['s2','s3', 's4','s5', 's6'], 'gmda': ['s1', 's2','s3','s4','s5', 's6']}, stations_list)
 
-gmda_pvp_dn1   = block_sec('dn1', 'gmda', 'pvp', 13.59, {'gmda': ['s1', 's2'], 'pvp': ['s1', 's2', 's4', 's5', 's6']}, stations_list)
-gmda_pvp_up1   = block_sec('up1', 'gmda', 'pvp', 13.59, {'gmda': ['s1', 's2','s3', 's4'], 'pvp': ['s1', 's3', 's4', 's5', 's6']}, stations_list)
-gmda_pvp_mid1  = block_sec('mid1', 'gmda', 'pvp', 13.59, {'gmda': ['s1', 's2','s3','s4','s5', 's6'], 'pvp': ['s5', 's6']}, stations_list)
+_seg_gmda_pvp = Segment.new('gmda', 'pvp', 13.59, stations_list)
+gmda_pvp_dn1 = _seg_gmda_pvp.add_line('dn1', {'gmda': ['s1', 's2'], 'pvp': ['s1', 's2', 's4', 's5', 's6']})
+gmda_pvp_up1 = _seg_gmda_pvp.add_line('up1', {'gmda': ['s1', 's2','s3', 's4'], 'pvp': ['s1', 's3', 's4', 's5', 's6']})
+gmda_pvp_mid1 = _seg_gmda_pvp.add_line('mid1', {'gmda': ['s1', 's2','s3','s4','s5', 's6'], 'pvp': ['s5', 's6']})
 
-pvp_snm_dn1    = block_sec('dn1', 'pvp', 'snm', 12.8, {'pvp': ['s1', 's2', 's4', 's5', 's6'], 'snm': ['s1', 's2', 's4', 's5']}, stations_list)
-pvp_snm_up1    = block_sec('up1', 'pvp', 'snm', 12.8, {'pvp': ['s1', 's3', 's4', 's5', 's6'], 'snm': ['s3', 's4', 's5']}, stations_list)
+_seg_pvp_snm = Segment.new('pvp', 'snm', 12.8, stations_list)
+pvp_snm_dn1 = _seg_pvp_snm.add_line('dn1', {'pvp': ['s1', 's2', 's4', 's5', 's6'], 'snm': ['s1', 's2', 's4', 's5']})
+pvp_snm_up1 = _seg_pvp_snm.add_line('up1', {'pvp': ['s1', 's3', 's4', 's5', 's6'], 'snm': ['s3', 's4', 's5']})
 
-snm_vbl_dn1    = block_sec('dn1', 'snm', 'vbl', 11.28, {'snm': ['s1', 's2', 's4', 's5'], 'vbl': ['s1', 's2', 's4', 's5']}, stations_list)
-snm_vbl_up1    = block_sec('up1', 'snm', 'vbl', 11.28, {'snm': ['s3', 's4', 's5'], 'vbl': ['s1', 's3', 's4', 's5']}, stations_list)
+_seg_snm_vbl = Segment.new('snm', 'vbl', 11.28, stations_list)
+snm_vbl_dn1 = _seg_snm_vbl.add_line('dn1', {'snm': ['s1', 's2', 's4', 's5'], 'vbl': ['s1', 's2', 's4', 's5']})
+snm_vbl_up1 = _seg_snm_vbl.add_line('up1', {'snm': ['s3', 's4', 's5'], 'vbl': ['s1', 's3', 's4', 's5']})
  
-vbl_dnv_dn1    = block_sec('dn1', 'vbl', 'dnv', 11.96, {'vbl': ['s1', 's2', 's4', 's5'], 'dnv': ['s1', 's2']}, stations_list)
-vbl_dnv_up1    = block_sec('up1', 'vbl', 'dnv', 11.96, {'vbl': ['s1', 's3', 's4', 's5'], 'dnv': ['s1', 's3', 's4', 's5']}, stations_list)
-vbl_dnv_mid1    = block_sec('mid1', 'vbl', 'dnv', 11.96, {'vbl': ['s1', 's3', 's4', 's5'], 'dnv': ['s1', 's2', 's3', 's4', 's5']}, stations_list)
+_seg_vbl_dnv = Segment.new('vbl', 'dnv', 11.96, stations_list)
+vbl_dnv_dn1 = _seg_vbl_dnv.add_line('dn1', {'vbl': ['s1', 's2', 's4', 's5'], 'dnv': ['s1', 's2']})
+vbl_dnv_up1 = _seg_vbl_dnv.add_line('up1', {'vbl': ['s1', 's3', 's4', 's5'], 'dnv': ['s1', 's3', 's4', 's5']})
+vbl_dnv_mid1 = _seg_vbl_dnv.add_line('mid1', {'vbl': ['s1', 's3', 's4', 's5'], 'dnv': ['s1', 's2', 's3', 's4', 's5']})
 # added extra 's2' at the dnv station
 
 
-dnv_kmx_dn1    = block_sec('dn1', 'dnv', 'kmx', 9.81, {'dnv': ['s1', 's2'], 'kmx': ['s1', 's2', 's3']}, stations_list)
-dnv_kmx_up1    = block_sec('up1', 'dnv', 'kmx', 9.81, {'dnv': ['s1', 's2', 's3', 's4', 's5'], 'kmx': ['s1', 's2', 's4', 's5']}, stations_list)
+_seg_dnv_kmx = Segment.new('dnv', 'kmx', 9.81, stations_list)
+dnv_kmx_dn1 = _seg_dnv_kmx.add_line('dn1', {'dnv': ['s1', 's2'], 'kmx': ['s1', 's2', 's3']})
+dnv_kmx_up1 = _seg_dnv_kmx.add_line('up1', {'dnv': ['s1', 's2', 's3', 's4', 's5'], 'kmx': ['s1', 's2', 's4', 's5']})
 
-kmx_gpi_dn1    = block_sec('dn1', 'kmx', 'gpi', 9.56, {'kmx': ['s1', 's2', 's3'], 'gpi': ['s1', 's2', 's4']}, stations_list)
-kmx_gpi_up1    = block_sec('up1', 'kmx', 'gpi', 9.56, {'kmx': ['s1', 's2', 's4', 's5'], 'gpi': ['s3', 's4']}, stations_list)
+_seg_kmx_gpi = Segment.new('kmx', 'gpi', 9.56, stations_list)
+kmx_gpi_dn1 = _seg_kmx_gpi.add_line('dn1', {'kmx': ['s1', 's2', 's3'], 'gpi': ['s1', 's2', 's4']})
+kmx_gpi_up1 = _seg_kmx_gpi.add_line('up1', {'kmx': ['s1', 's2', 's4', 's5'], 'gpi': ['s3', 's4']})
 
-gpi_grbl_dn1   = block_sec('dn1', 'gpi', 'grbl', 10.52, {'gpi': ['s1', 's2', 's4'], 'grbl': ['s1', 's2', 's3']}, stations_list)
-gpi_grbl_up1   = block_sec('up1', 'gpi', 'grbl', 10.52, {'gpi': ['s3', 's4'], 'grbl': ['s1', 's2', 's4', 's5']}, stations_list)
+_seg_gpi_grbl = Segment.new('gpi', 'grbl', 10.52, stations_list)
+gpi_grbl_dn1 = _seg_gpi_grbl.add_line('dn1', {'gpi': ['s1', 's2', 's4'], 'grbl': ['s1', 's2', 's3']})
+gpi_grbl_up1 = _seg_gpi_grbl.add_line('up1', {'gpi': ['s3', 's4'], 'grbl': ['s1', 's2', 's4', 's5']})
 
-grbl_gtlm_dn1  = block_sec('dn1', 'grbl', 'gtlm', 5.84, {'grbl': ['s1', 's2', 's3'], 'gtlm': ['s1', 's2', 's4']}, stations_list)
-grbl_gtlm_up1  = block_sec('up1', 'grbl', 'gtlm', 5.84, {'grbl': ['s1', 's2', 's4', 's5'], 'gtlm': ['s3', 's4']}, stations_list)
+_seg_grbl_gtlm = Segment.new('grbl', 'gtlm', 5.84, stations_list)
+grbl_gtlm_dn1 = _seg_grbl_gtlm.add_line('dn1', {'grbl': ['s1', 's2', 's3'], 'gtlm': ['s1', 's2', 's4']})
+grbl_gtlm_up1 = _seg_grbl_gtlm.add_line('up1', {'grbl': ['s1', 's2', 's4', 's5'], 'gtlm': ['s3', 's4']})
 
 
 blocksections_list = [

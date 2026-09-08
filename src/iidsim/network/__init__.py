@@ -3,7 +3,7 @@
 Each board module (network/boards/*.py) owns its own station/block-section objects;
 this module merges them and adds the hand-specified inter-board link sections.
 """
-from iidsim.domain import block_sec, populate_connections
+from iidsim.domain import populate_connections, Segment
 
 from .boards import psa_scmn as A
 from .boards import krpu_ktv as B
@@ -30,10 +30,12 @@ blsec_list = (
 
 # 4) the two inter-board link sections (dropped from individual boards because the
 #    far endpoint wasn't in scope there). Built once against the merged list.
-mvw_ktv_dn1 = block_sec('dn1', 'mvw', 'ktv', 8.93, {'mvw': ['s1', 's2', 's3', 's4', 's5'], 'ktv': ['s1', 's2', 's4', 's5', 's6', 's7', 's8', 's9']}, stations_list)
-mvw_ktv_up1 = block_sec('up1', 'mvw', 'ktv', 8.93, {'mvw': ['s1', 's2', 's3', 's5'], 'ktv': ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's9']}, stations_list)
-gtlm_vzm_dn1 = block_sec('dn1', 'gtlm', 'vzm', 5.64, {'gtlm': ['s1', 's2', 's4'], 'vzm': ['s1', 's2', 's3', 's4', 's5', 's6', 's8', 's9']}, stations_list)
-gtlm_vzm_up1 = block_sec('up1', 'gtlm', 'vzm', 5.64, {'gtlm': [ 's1', 's3', 's4'], 'vzm': ['s1', 's2', 's3', 's4', 's5', 's7', 's8', 's9']}, stations_list)
+_seg_mvw_ktv = Segment.new('mvw', 'ktv', 8.93, stations_list)
+mvw_ktv_dn1 = _seg_mvw_ktv.add_line('dn1', {'mvw': ['s1', 's2', 's3', 's4', 's5'], 'ktv': ['s1', 's2', 's4', 's5', 's6', 's7', 's8', 's9']})
+mvw_ktv_up1 = _seg_mvw_ktv.add_line('up1', {'mvw': ['s1', 's2', 's3', 's5'], 'ktv': ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's9']})
+_seg_gtlm_vzm = Segment.new('gtlm', 'vzm', 5.64, stations_list)
+gtlm_vzm_dn1 = _seg_gtlm_vzm.add_line('dn1', {'gtlm': ['s1', 's2', 's4'], 'vzm': ['s1', 's2', 's3', 's4', 's5', 's6', 's8', 's9']})
+gtlm_vzm_up1 = _seg_gtlm_vzm.add_line('up1', {'gtlm': [ 's1', 's3', 's4'], 'vzm': ['s1', 's2', 's3', 's4', 's5', 's7', 's8', 's9']})
 
 blsec_list += [mvw_ktv_dn1, mvw_ktv_up1, gtlm_vzm_dn1, gtlm_vzm_up1]
 blocksections_list = blsec_list
