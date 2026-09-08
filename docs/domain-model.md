@@ -82,11 +82,14 @@ block_sec(dir, stn_start, stn_end, length, conns, stations_list)
   physical line shared by both directions) — each combined with an instance suffix, e.g.
   `dn1`, `up1`, `mid1`, `mid2` (for station pairs with more than one parallel physical
   line).
-- Naming convention: `STNWEST_STNEAST_DIRSUFFIX`, where west/east is decided by comparing
-  station `longitude` (lower = west). E.g. `'krdl_bchl_dn1'`. This is a naming/key
-  convention only, as of [segment-redesign.md](segment-redesign.md) — the engine no
-  longer uses longitude to decide which way a train is actually travelling; see
-  `Segment` below.
+- Naming convention: `STNUP_STNDOWN_DIRSUFFIX`, e.g. `'krdl_bchl_dn1'`. `stn_up`/
+  `stn_down` are decided by `sort_up_down()` (`blocksections.py`): primarily
+  `network.routes.branch_order()` (the real railway up/down convention — toward vs.
+  away from a branch's reference end), falling back to station `longitude` (lower =
+  "up") only for a pair outside the registered network — see
+  [segment-redesign.md](segment-redesign.md) section 5. Naming and
+  `direction_of_travel()` (`Segment`, below) both read the same `stn_up`/`stn_down`
+  attributes, so they can't diverge.
 - `occ_ind` / `occ_start` / `occ_end` / `occ_train` — current occupancy state; `2100-06-01`
   sentinel timestamps mean "not currently set".
 - `blsec_queue` — a flat list of trains waiting for this section, stored as repeating
@@ -120,36 +123,37 @@ grouping (previously only an implicit naming convention, then an anonymous engin
 index, `blsec_by_pair`) a real, named identity.
 
 ```python
-Segment(name, lines, stn_up=None, stn_down=None)
+Segment(name, lines)
 ```
 
 - `name` — the base station-pair string (e.g. `'krdl_bchl'`), matching what
   `ResolveMixin.conn_base()` computes for that pair.
 - `lines` — the `block_sec` objects sharing that base, in `blocksections_list` order.
-- `stn_west` / `stn_east` / `length` — physical facts common to every line on this
-  segment (verified identical across lines before trusting them), taken from the lines
-  rather than recomputed.
-- `stn_up` / `stn_down` — this segment's endpoints in **branch-order** terms: `stn_up` is
-  the one closer to the reference ("headquarters") end of whichever branch this pair
-  belongs to, from `network.routes.branch_order()`. Deliberately independent of
-  `stn_west`/`stn_east` above, which are longitude-derived and carry no up/down meaning
-  of their own. `None`/`None` if no branch covers this pair (doesn't happen for any of
-  the 92 real segments today, but `direction_of_travel()` refuses to guess rather than
-  raising here).
+- `stn_up` / `stn_down` / `length` — physical facts common to every line on this segment
+  (verified identical across lines before trusting them), taken from `lines[0]` rather
+  than recomputed. `stn_up`/`stn_down` are this segment's endpoints in **branch-order**
+  terms: `stn_up` is the one closer to the reference ("headquarters") end of whichever
+  branch this pair belongs to, from `network.routes.branch_order()`, falling back to
+  station `longitude` only for a pair outside the registered network (never actually
+  needed for any of the 92 real segments) — see `sort_up_down()`, above, and
+  [segment-redesign.md](segment-redesign.md) section 5. Naming (the `Segment`'s own
+  `name`, and every `block_sec.name` on it) and `direction_of_travel()` below both come
+  from these same two attributes — a single ordering, not two independently-derived ones
+  that happen to agree.
 - `direction_of_travel(from_stn, to_stn)` — `'dn'` if travelling `from_stn -> to_stn`
-  matches this segment's branch order, `'up'` if reversed; raises if the order is unknown
-  or the two stations aren't this segment's own endpoints.
+  matches this segment's `stn_up` -> `stn_down` order, `'up'` if reversed; raises if
+  `from_stn`/`to_stn` aren't this segment's own two stations.
 - `lines_for_direction(direction)` — this segment's lines compatible with `direction`
   (same-direction lines plus bidirectional `mid*` ones).
 
 `Segment.new(stn_a, stn_b, length, stations_list)` (classmethod) / `add_line(dir_mvmt,
 conns)` are the raw-input construction path board data actually uses (see below) —
-`new()` declares a segment's shared facts exactly once and returns it with no lines yet;
-`add_line()` builds and registers one physical line, always reusing that same segment's
-own `stn_west`/`stn_east`/`length` rather than taking them as separate arguments. This
-makes the endpoint/length agreement `Segment(name, lines, ...)` validates for
-structurally impossible to violate, for any segment built this way, rather than something
-to hope holds.
+`new()` declares a segment's shared facts exactly once (via `sort_up_down()`) and
+returns it with no lines yet; `add_line()` builds and registers one physical line,
+always reusing that same segment's own `stn_up`/`stn_down`/`length` rather than taking
+them as separate arguments. This makes the endpoint/length agreement `Segment(name,
+lines)` validates for structurally impossible to violate, for any segment built this
+way, rather than something to hope holds.
 
 **Owns no mutable simulation state.** Occupancy and queueing (`occ_ind`, `blsec_queue`,
 `autoblsec_list`, ...) stay entirely on the `block_sec` line objects — `dn1` and `up1`

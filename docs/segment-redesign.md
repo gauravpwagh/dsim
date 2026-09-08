@@ -3,7 +3,12 @@
 > **Status: done.** All six steps below are implemented and verified. This document
 > records the design discussion and verification, the same way
 > [event-manager-design.md](event-manager-design.md) does for that (larger, earlier)
-> redesign.
+> redesign. **Section 5** records a later follow-up that unified two orderings steps
+> 1-6 had deliberately kept independent (`stn_west`/`stn_east` naming vs. `stn_up`/
+> `stn_down` direction) — read it alongside the rest; several statements below (most
+> visibly in section 2's `conn_base()` bullet, and step 2's "deliberately independent
+> of `stn_west`/`stn_east`") describe the pre-unification design and are superseded
+> there.
 
 ## 1. Motivation
 
@@ -275,7 +280,74 @@ itself, or revisiting the "leave it as-is" decision on `vbl_dnv_mid1` from befor
   rather than assumed correct. (Step 6 later trimmed `segments_by_pair`'s copy too, so
   this specific asymmetry no longer exists — see step 6.)
 
-## 5. What's still open
+## 5. Later unification: `stn_west`/`stn_east` merged into `stn_up`/`stn_down`
+
+Steps 1-5 above deliberately kept two independently-sourced orderings of the same
+station pair: `stn_west`/`stn_east` (longitude, for naming — what a segment/line is
+*called*) and `stn_up`/`stn_down` (branch order, for `direction_of_travel()` — which
+way a train is actually going). That split was itself the point at the time: naming
+had to keep working for every station pair (including ones with no branch-order
+coverage), while direction needed the real railway convention, not a proxy for it.
+
+Once step 2's check confirmed 100% agreement between the two orderings across all 92
+real segments, the split stopped earning its complexity — two call sites
+(`sort_west_east()` for naming, `branch_order()` for direction) computing what was, in
+practice, always the same answer, with naming as the one that could never fail (always
+had a longitude to fall back on) and direction as the one that raised if branch order
+was missing. Asked directly whether `stn_up`/`stn_down` should also just *be* the
+naming convention; the answer was yes.
+
+**What changed:**
+
+- `sort_west_east()` (in `block_section.py`) is now `sort_up_down()` — the sole
+  ordering function used for identity, naming, *and* direction. It tries
+  `network.routes.branch_order()` first; only for a pair outside the registered
+  network does it fall back to longitude (verified: never actually triggered for any
+  of the 92 real segments — branch order covers all of them, same as step 2 found).
+- `block_sec` and `Segment` no longer have separate `stn_west`/`stn_east` and
+  `stn_up`/`stn_down` attributes — just `stn_up`/`stn_down`. Naming
+  (`STNUP_STNDOWN_DIRSUFFIX`) and `direction_of_travel()` now read from the exact same
+  two attributes, so they can never again silently diverge the way independently
+  re-deriving the same comparison twice always risks.
+- `Segment(name, lines)` no longer takes separate `stn_up=`/`stn_down=` arguments —
+  they're derived from `lines[0]` (which already carries them), same as `stn_west`/
+  `stn_east` always were. `Segment.new()`/`add_line()` are otherwise unchanged in
+  shape, just sourcing `stn_up`/`stn_down` from `sort_up_down()` instead of `stn_west`/
+  `stn_east` from `sort_west_east()` plus a separate `branch_order()` lookup.
+- `resolve.py`'s `conn_base()` — described in section 2 above as "deliberately not
+  touched" during steps 1-6 because changing it would be circular with `Segment`'s own
+  construction — now calls `sort_up_down()` directly, the same function `block_sec`/
+  `Segment` naming uses, rather than its own independent west/east comparison. This
+  closes the exact class of discrepancy the rest of this redesign exists to eliminate:
+  before this change, `conn_base()` and `block_sec.__init__` computed a segment's name
+  via two separately-written longitude comparisons that happened to agree, not one
+  comparison both relied on.
+
+**Design choice: kept the longitude fallback rather than hard-failing.** A stricter
+reading of "naming now depends on branch order" would make `sort_up_down()` raise for
+any pair with no branch-order coverage, matching `direction_of_travel()`'s existing
+behavior. Not done, because it would break every synthetic-station test fixture
+(`tests/test_segment.py`, `tests/test_sibling_redirect.py` build fake stations like
+`"A"`/`"B"` with no real branch coverage) for no real-network benefit — branch order
+already covers all 92 real segments, so the fallback path is dead code in production,
+kept alive only for tests that don't need real branch coverage to make their point.
+
+**Verification, same methodology as every step above:**
+
+- Full test suite: 48/48 passed.
+- Both import orders (`import iidsim.domain` first, `import iidsim.network` first) —
+  `sort_up_down()`'s lazy `branch_order` import follows the exact pattern `Segment.new()`
+  already used for the same reason (see step 4/section 3's discussion of the
+  `iidsim.domain`/`iidsim.network` import cycle).
+- **Structural proof zero block-section names actually changed**: saved the sorted list
+  of all 177 real `block_sec.name` values after the change, `git stash`'d the change,
+  saved the same list before it, `git stash pop`'d, diffed — identical. Expected, since
+  step 2 already proved 100% agreement between the two orderings; this confirms that
+  proof still holds after merging them.
+- **`total_schedule` byte-identical before/after**, same three real corridors used
+  throughout this document (`krdl_ktv`, `sprd_vzm`, `psa_ktv`).
+
+## 6. What's still open
 
 - The precomputed **"block section sequence per train"** idea discussed alongside this
   redesign (resolving a train's whole route to `(Segment, direction)` pairs before the
