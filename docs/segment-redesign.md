@@ -1,6 +1,6 @@
 # Segment redesign — design doc
 
-> **Status: done.** All five steps below are implemented and verified. This document
+> **Status: done.** All six steps below are implemented and verified. This document
 > records the design discussion and verification, the same way
 > [event-manager-design.md](event-manager-design.md) does for that (larger, earlier)
 > redesign.
@@ -67,7 +67,7 @@ fix for that, not just a check for it.
   an edge case; this was a pure refactor, verified via the full test suite before
   proceeding, not a behavior change.
 
-## 3. The five steps
+## 3. The six steps
 
 ### Step 1 — `Segment`: a named object over the existing grouping
 
@@ -213,7 +213,37 @@ mask a *different* future omission.
 `self.blsec_by_pair` deliberately stays sourced from `blocksections_list`, not from
 `segments_by_pair`'s lines — switching it would have silently started including the
 orphaned `vbl_dnv_mid1` in real candidate resolution (`blsec_id()`, etc.), a genuine
-behavior change this step does not make.
+behavior change this step does not make. (Step 6 below trims the orphan out of
+`segments_by_pair`'s lines entirely, which makes this particular concern moot in
+practice — but `blsec_by_pair` was left exactly as this step put it, not revisited.)
+
+### Step 6 — consolidating candidate-list construction onto `lines_for_direction()`
+
+The last item from this document's own "what's still open" list (see below, previously):
+`blsec_id()`, `outgoing_blsec_name()`, and `check_next_blse_stn_occupancy()` still built
+their station-pair candidate lists by hand — `self.blsec_by_pair.get(base, [])` plus,
+where direction mattered, an inline "same-direction-or-mid" filter — duplicating exactly
+what `Segment.lines_for_direction()` exists to do. All three now call it (or `.lines`
+directly where no filtering was needed) instead. `outgoing_blsec_name()`'s two-pass
+priority loop (prefer an exact-direction line, fall back to a `mid` one) is unaffected —
+narrowing its candidate list to `lines_for_direction(wanted)` first is behaviorally
+identical to filtering nothing, since a line matching neither loop's condition could
+never have been selected anyway.
+
+`get_prev_blsec_obj()` (`priority.py`) was deliberately left alone: it excludes `mid`
+lines entirely (no "or `dir_mvmt.startswith('mid')`" fallback), unlike
+`lines_for_direction()`'s semantics — not a safe drop-in there, and not part of what was
+asked.
+
+**This resurfaced the `vbl_dnv_mid1` discrepancy in a new way.** `Segment.lines` (unlike
+`blsec_by_pair`, still sourced from `blocksections_list`) included the orphaned line, so
+`lines_for_direction()` would have started surfacing it as a live candidate again —
+silently reintroducing the exact behavior change step 5 deliberately avoided. Fixed at
+the source instead of working around it at each call site: `network/__init__.py` now
+strips `_KNOWN_ORPHANED_LINES` out of every `Segment`'s `.lines` right after the existing
+cross-check identifies them, so `segments_by_pair`'s lines and `blocksections_list` agree
+exactly everywhere, permanently — without touching the raw board data, `blocksections_list`
+itself, or revisiting the "leave it as-is" decision on `vbl_dnv_mid1` from before.
 
 ## 4. Verification
 
@@ -231,27 +261,22 @@ behavior change this step does not make.
 - **Manual before/after diffs** (`git stash` the step's change, run, `git stash pop`, run
   again, compare) of the complete pickled `total_schedule`, on real multi-day corridors
   not covered by the golden test — `krdl_ktv` after step 1, `krdl_ktv` again after step
-  2, `krdl_ktv` / `sprd_vzm` / `ktv_psa` after steps 3, 4, and 5 each. Byte-identical every
-  time. Between them these three corridors' trains cross every one of the three rewritten
-  boards and both hand-edited inter-board bridges (`krdl_ktv`'s route ends via `mvw` →
-  `ktv`; `sprd_vzm`'s ends via `gtlm` → `vzm`), so steps 4 and 5's rewrites are exercised
-  by real train movements on every file they touched, not just re-loaded and left unused.
+  2, `krdl_ktv` / `sprd_vzm` / `ktv_psa` after steps 3, 4, 5, and 6 each. Byte-identical
+  every time. Between them these three corridors' trains cross every one of the three
+  rewritten boards and both hand-edited inter-board bridges (`krdl_ktv`'s route ends via
+  `mvw` → `ktv`; `sprd_vzm`'s ends via `gtlm` → `vzm`), so steps 4-6's changes are
+  exercised by real train movements on every file they touched, not just re-loaded and
+  left unused.
 - **`blsec_by_pair` vs. `segments_by_pair` divergence checked directly, for step 5**:
   confirmed in a real `Simulation` instance that `blsec_by_pair['vbl_dnv']` still excludes
   the orphaned `mid1` line (matching pre-step-5 behavior exactly) while
-  `segments_by_pair['vbl_dnv'].lines` includes it (an accurate record of what was actually
-  built) — the deliberate asymmetry described in step 5 above, confirmed rather than
-  assumed correct.
+  `segments_by_pair['vbl_dnv'].lines` included it at the time (an accurate record of what
+  was actually built) — the deliberate asymmetry described in step 5 above, confirmed
+  rather than assumed correct. (Step 6 later trimmed `segments_by_pair`'s copy too, so
+  this specific asymmetry no longer exists — see step 6.)
 
 ## 5. What's still open
 
-- **`blsec_id()`, `outgoing_blsec_name()`, and `check_next_blse_stn_occupancy()` still
-  build their candidate lists by hand** (`self.blsec_by_pair.get(base, [])` plus an
-  inline direction filter) rather than calling `Segment.lines_for_direction()`, even
-  though that method exists specifically to replace that pattern. Consolidating those
-  three call sites onto it is a natural next step, lower-risk than step 3 (pure
-  candidate-list construction, not direction determination), not done here because it
-  wasn't asked for as part of this pass.
 - The precomputed **"block section sequence per train"** idea discussed alongside this
   redesign (resolving a train's whole route to `(Segment, direction)` pairs before the
   simulation starts, so `blsec_id()` only has to resolve *which specific line* at event
