@@ -10,6 +10,7 @@ import pandas as pd
 import iidsim.network as _network
 from iidsim import schedules
 from iidsim.data import geography, halt_deviation, timing
+from iidsim.domain import Segment
 # from iidsim.reporting.chart import plot_railway_chart
 # from iidsim.reporting.extract import filter_df_by_date_window, get_formatted_data_from_df
 
@@ -71,6 +72,17 @@ class SimulationState:
         for b in self.blocksections_list:
             self.blsec_by_station.setdefault(b.stn_west.name, []).append(b)
             self.blsec_by_station.setdefault(b.stn_east.name, []).append(b)
+        # {'stn_west_stn_east': Segment} -- one Segment per station pair, wrapping
+        # the same line objects already grouped in blsec_by_pair. Purely additive:
+        # nothing reads self.segments_by_pair yet (see docs discussion on the
+        # Segment redesign) -- this just gives that grouping a name and a
+        # direction-aware query method (Segment.lines_for_direction) instead of
+        # leaving it as an anonymous index, without changing how any existing line
+        # object behaves. Named segments_by_pair, not segments -- self.segments is
+        # already taken below (network_section's chart station-pair distances).
+        self.segments_by_pair = {
+            base: Segment(base, lines) for base, lines in self.blsec_by_pair.items()
+        }
         if use_halt_deviation:
             self.halt_dev_fits_g = halt_deviation.fits_for('g')
             self.halt_dev_fits_p = halt_deviation.fits_for('p')
