@@ -36,10 +36,9 @@ class ResolveMixin:
         # order (it re-sorts by longitude internally), so conn_base(stn2, stn1) here
         # would just recompute the identical string -- no need for a second lookup.
         blsec_base = self.conn_base(stn1, stn2)
-        blsec_list = [
-            blsec_candidate for blsec_candidate in self.blsec_by_pair.get(blsec_base, [])
-            if blsec_candidate.dir_mvmt[0:2] == train_dir or blsec_candidate.dir_mvmt[0:3] == 'mid'
-        ]
+        # direction_of_travel() above already looked up this same segment (via its own
+        # conn_base() call) and would have raised if it didn't exist, so this can't miss.
+        blsec_list = self.segments_by_pair[blsec_base].lines_for_direction(train_dir)
         if self.next_event_type == 'a' and len(self.stns_event) > 1:
             for blsec in blsec_list:
                 if blsec.occ_ind == 1 and blsec.occ_train == self.next_event_tr_id:
@@ -104,7 +103,7 @@ class ResolveMixin:
         if t_ind != len_sched - 1:
             stn2 = self.stns_event[1].name
             curr_blsec = self.conn_base(stn1, stn2)
-            count_curr_blsec = len(self.blsec_by_pair.get(curr_blsec, []))
+            count_curr_blsec = len(self.segments_by_pair[curr_blsec].lines)
             for track_name, vals in self.stns_event[1].tracks.items():
                 train = vals[5]
                 train_dir = None
@@ -128,7 +127,7 @@ class ResolveMixin:
                 stn3 = self.find_stn3(stn1, stn2)
             if stn3 != '':
                 next_blsec_name = self.conn_base(stn2, stn3)
-                for blsec in self.blsec_by_pair.get(next_blsec_name, []):
+                for blsec in self.segments_by_pair[next_blsec_name].lines:
                     count_next_blsec += 1
                     blsec_tr_dir = None
                     blsec_occ_train_name = blsec.occ_train.split('_')[0] if blsec.occ_train else None
@@ -241,7 +240,11 @@ class ResolveMixin:
         # order, so a second lookup for conn_base(stn_b, stn_a) would be redundant.
         base = self.conn_base(stn_a, stn_b)
         wanted = self.direction_of_travel(stn_a, stn_b)
-        candidates = self.blsec_by_pair.get(base, [])
+        # lines_for_direction(wanted) already restricts to same-direction-or-mid lines,
+        # exactly the set the two loops below would ever select from anyway (a line
+        # matching neither condition can't satisfy either loop) -- narrowing here first
+        # is equivalent, just delegates the filter instead of duplicating it.
+        candidates = self.segments_by_pair[base].lines_for_direction(wanted)
         for blsec in candidates:
             if blsec.dir_mvmt.startswith(wanted):
                 return blsec.name

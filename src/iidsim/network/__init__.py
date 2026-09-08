@@ -92,3 +92,13 @@ if _from_segments != set(blocksections_list):
         f"only in segments: {[l.name for l in _from_segments - set(blocksections_list)]}, "
         f"only in blocksections_list: {[l.name for l in set(blocksections_list) - _from_segments]}"
     )
+
+# 7) strip the known-orphaned line(s) out of the Segment objects everything else
+#    actually uses, so Segment.lines_for_direction() (and anything else reading
+#    .lines) reflects exactly "the lines actually in service" -- matching
+#    blocksections_list -- rather than silently including a line that was built
+#    but was never wired into the network. Doesn't touch the raw board data or
+#    blocksections_list itself, only this dict's view of it, and only for the
+#    one line named above.
+for _seg in segments_by_pair.values():
+    _seg.lines = [l for l in _seg.lines if l.name not in _KNOWN_ORPHANED_LINES]
