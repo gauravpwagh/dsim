@@ -41,5 +41,13 @@ class train():
         avg_earliness = total_earliness/station_count
         avg_tardiness = total_tardiness/station_count
 
-        return {'overall tardiness': destination_tardiness, 'overall earlyness': destination_earliness, 'Average deviation': avg_deviation, 'Average earlyness': avg_earliness, 'Average tardiness': avg_tardiness}
+        statistics = {
+            'overall tardiness': destination_tardiness, 
+            'overall earlyness': destination_earliness, 
+            'Average deviation': avg_deviation, 
+            'Average earlyness': avg_earliness, 
+            'Average tardiness': avg_tardiness
+            }
+        
+        return statistics
 
