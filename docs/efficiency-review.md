@@ -72,13 +72,20 @@ chart-rendering output that the current smoke test doesn't check pixel/vector-fo
    discipline this review recommended was then applied to move line assignment, queue
    priority, autoblock sequencing, and sibling redirect off the engine and onto
    `Station`/`BlockSection` (stages 2-4).
-2. **`blsec_id()` and a few related functions still linear-scan `blocksections_list`**
-   with string-prefix matching (`.startswith()`) rather than using the existing
-   `blsec_lookup` dict or a station-pair-keyed index. Not changed because `blsec_id`'s
-   candidate-selection logic (direction filtering, tie-breaking between parallel
-   dn1/up1/mid1 sections) is exactly the kind of intricate, comment-documented-workaround
-   code this project's own notes already flag as too risky to touch without a fuller test
-   suite first.
+2. ~~**`blsec_id()` and a few related functions still linear-scan `blocksections_list`**~~
+   **Done.** `blsec_id()`, `check_next_blse_stn_occupancy()`, `outgoing_blsec_name()`
+   (`resolve.py`), and `get_prev_blsec_obj()` (`priority.py`) now use `blsec_by_pair`
+   (a `{station_pair: [block_sec, ...]}` index built once at startup) instead of
+   scanning the whole network per call; `find_stn3()` similarly uses a new
+   `blsec_by_station` index. The apparent risk this note originally worried about
+   turned out to be manageable with the same discipline used elsewhere in this
+   project: checked the real data directly before trusting each substitution (e.g.
+   confirmed zero station-pair-base string collisions before relying on an exact-key
+   lookup in place of a loose, unanchored `startswith()`), then verified with the full
+   test suite plus a before/after diff of the complete simulated schedule on real
+   corridors. See [segment-redesign.md](segment-redesign.md), which also builds on
+   this index (`Segment`/`segments_by_pair`) to replace longitude-based direction
+   determination.
 3. **`reporting/extract.py` uses `df.iterrows()`** in both `filter_df_by_date_window` and
    `get_formatted_data_from_df` — a well-known pandas anti-pattern (row-by-row Python
    objects with type-coercion overhead instead of vectorized operations). Lower priority

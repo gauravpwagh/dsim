@@ -35,7 +35,7 @@ train(id, tr_type, tr_schedule, origin, destination, max_speed, instance_index, 
 - `instance_index` — disambiguates multiple runs of the same `train_id` (e.g. up/down
   workings on different days); the simulation keys everything by
   `f'{train_id}_{instance_index}'`.
-- `calc_tr_stats()` — computes per-train punctuality statistics (average/overall
+- `calc_train_statistics()` — computes per-train punctuality statistics (average/overall
   earliness, tardiness, absolute deviation) by comparing `tr_schedule` against
   `tr_sched_act`.
 
@@ -83,7 +83,10 @@ block_sec(dir, stn_start, stn_end, length, conns, stations_list)
   `dn1`, `up1`, `mid1`, `mid2` (for station pairs with more than one parallel physical
   line).
 - Naming convention: `STNWEST_STNEAST_DIRSUFFIX`, where west/east is decided by comparing
-  station `longitude` (lower = west). E.g. `'krdl_bchl_dn1'`.
+  station `longitude` (lower = west). E.g. `'krdl_bchl_dn1'`. This is a naming/key
+  convention only, as of [segment-redesign.md](segment-redesign.md) — the engine no
+  longer uses longitude to decide which way a train is actually travelling; see
+  `Segment` below.
 - `occ_ind` / `occ_start` / `occ_end` / `occ_train` — current occupancy state; `2100-06-01`
   sentinel timestamps mean "not currently set".
 - `blsec_queue` — a flat list of trains waiting for this section, stored as repeating
@@ -107,6 +110,50 @@ block_sec(dir, stn_start, stn_end, length, conns, stations_list)
   - `find_free_sibling(blsec_lookup, ...)` — a free parallel section (same station pair,
     different direction suffix) this train could redirect onto if `self` is occupied or
     queued.
+
+## `segment.py` — the `Segment` class
+
+A `Segment` is the station-pair track segment itself — as opposed to `block_sec`, which
+is one specific physical *line* on that segment (`dn1`, `up1`, or a shared `mid1`/
+`mid2`). Added in [segment-redesign.md](segment-redesign.md) to give the station-pair
+grouping (previously only an implicit naming convention, then an anonymous engine-level
+index, `blsec_by_pair`) a real, named identity.
+
+```python
+Segment(name, lines, stn_up=None, stn_down=None)
+```
+
+- `name` — the base station-pair string (e.g. `'krdl_bchl'`), matching what
+  `ResolveMixin.conn_base()` computes for that pair.
+- `lines` — the `block_sec` objects sharing that base, in `blocksections_list` order.
+- `stn_west` / `stn_east` / `length` — physical facts common to every line on this
+  segment (verified identical across lines before trusting them), taken from the lines
+  rather than recomputed.
+- `stn_up` / `stn_down` — this segment's endpoints in **branch-order** terms: `stn_up` is
+  the one closer to the reference ("headquarters") end of whichever branch this pair
+  belongs to, from `network.routes.branch_order()`. Deliberately independent of
+  `stn_west`/`stn_east` above, which are longitude-derived and carry no up/down meaning
+  of their own. `None`/`None` if no branch covers this pair (doesn't happen for any of
+  the 92 real segments today, but `direction_of_travel()` refuses to guess rather than
+  raising here).
+- `direction_of_travel(from_stn, to_stn)` — `'dn'` if travelling `from_stn -> to_stn`
+  matches this segment's branch order, `'up'` if reversed; raises if the order is unknown
+  or the two stations aren't this segment's own endpoints.
+- `lines_for_direction(direction)` — this segment's lines compatible with `direction`
+  (same-direction lines plus bidirectional `mid*` ones).
+
+**Owns no mutable simulation state.** Occupancy and queueing (`occ_ind`, `blsec_queue`,
+`autoblsec_list`, ...) stay entirely on the `block_sec` line objects — `dn1` and `up1`
+can be simultaneously occupied by two different trains, which is the entire reason
+double-track sections exist, so that can never become a segment-level fact. `Segment` is
+built once per run (`SimulationState.segments_by_pair`), alongside the pre-existing
+`blsec_by_pair` index it wraps.
+
+`Simulation.direction_of_travel(stn_a, stn_b)` (`engine/resolve.py`) is the engine-facing
+entry point most code actually calls — it looks up the right `Segment` via `conn_base()`
+and delegates. This replaced 10 separate `station_longitudes[...]` comparisons across
+`resolve.py`/`priority.py`/`run.py`; see
+[segment-redesign.md](segment-redesign.md) for the full list and how it was verified.
 
 ## `network/` — assembling the physical graph
 
@@ -138,12 +185,20 @@ imported anywhere except in a comment, and some of its list definitions
 (`krdl_vzm_single_line_blsec`, etc.) reference block-section variable names that aren't
 defined in that file, confirming it isn't meant to be executed as a module.
 
-## `station_routes.py`
+## `routes.py` (formerly described as `station_routes.py`)
 
 Defines named station-code lists for each physical line segment (`KRDL_TO_KRPU`,
-`KRPU_TO_KTV`, `SPRD_TO_VZM`, `VZM_TO_PSA`, etc.) and composes them into full
-origin→destination routes (`KRDL_KTV`, `VZM_PSA`, `SPRD_KTV`, ...), each with its reverse
-automatically generated. All of these are collected into one lookup dict,
-`BRANCH_LISTS['ORIGIN_DEST'] → [station codes in travel order]`. This is a route-lookup
-utility for whatever code needs "the ordered station list between A and B" — a simpler,
-independent representation from the block-section graph in `network/`.
+`KRPU_TO_KTV`, `SPRD_TO_VZM`, `VZM_TO_PSA`, etc., head-of-list = a branch's reference
+end) and composes them into full origin→destination routes (`KRDL_KTV`, `VZM_PSA`,
+`SPRD_KTV`, ...), each with its reverse automatically generated. All of these are
+collected into one lookup dict, `BRANCH_LISTS['ORIGIN_DEST'] → [station codes in travel
+order]` — a route-lookup utility for whatever code needs "the ordered station list
+between A and B," a simpler, independent representation from the block-section graph in
+`network/`.
+
+**As of [segment-redesign.md](segment-redesign.md), these per-branch lists are also
+load-bearing**, not just unused reference data: `BASE_SEGMENTS` (the 8 base lists,
+collected into a registry) and `branch_order()` derive every `Segment`'s `stn_up`/
+`stn_down` from them — the real source of the engine's travel-direction convention, now
+that it no longer uses longitude for that purpose. `BRANCH_LISTS` itself (the composed,
+full-route dict) remains unused by any other code.

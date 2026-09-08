@@ -1,9 +1,10 @@
-"""Unit tests for iidsim.domain.Segment -- the station-pair grouping introduced
-alongside (not yet replacing) SimulationState.blsec_by_pair. See the Segment
-redesign discussion for why this exists: it gives the station-pair grouping a
-name and a direction-aware query method instead of leaving it as an anonymous
-index, while every line (block_sec) object keeps its own occupancy/queue state
-exactly as before -- Segment holds no mutable simulation state of its own.
+"""Unit tests for iidsim.domain.Segment -- the station-pair grouping wrapping
+SimulationState.blsec_by_pair's line objects with real identity (endpoints,
+length, up/down direction from branch order). See docs/segment-redesign.md
+for why this exists and how Simulation.direction_of_travel() (resolve.py)
+uses it in place of the engine's old longitude comparisons. Every line
+(block_sec) object keeps its own occupancy/queue state exactly as before --
+Segment holds no mutable simulation state of its own.
 
 Fixtures build real iidsim.domain.block_sec objects, same approach as
 tests/test_sibling_redirect.py.

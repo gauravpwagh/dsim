@@ -15,6 +15,13 @@
 > `resource_update_event` itself is smaller as a result (~467 lines, down from ~700) but
 > still exists as one method — the "Event loop" and "Block-section assignment" sections
 > below describe the *current* mechanics, not the pre-migration ones.
+>
+> **Travel direction (`'up'`/`'dn'`) is also no longer decided by longitude** — see
+> [segment-redesign.md](segment-redesign.md). `Simulation.direction_of_travel(stn_a,
+> stn_b)` (`resolve.py`), backed by the new `Segment` domain object
+> (`domain/segment.py`), is now the sole source of "which way is this train going"
+> throughout the engine; longitude is only still used for `block_sec`/`Segment` naming,
+> a separate concern.
 
 This ~2,900-line script (mirrored in `final_sim_sj_4aug.ipynb` for interactive runs) is
 the heart of the project: a discrete-event simulation that replays a planned timetable
@@ -58,7 +65,12 @@ code that runs on import/execution.
   `'planned'`, `'simulated'`, `'actual'` (from `tr_real_schedule`, if any) — this is what
   gets exported to Excel/JSON at the end.
 - `blsec_lookup` — `{block_section_name: block_sec object}`, built once from
-  `network.blocksections_list`.
+  `network.blocksections_list`. `blsec_by_pair` / `blsec_by_station` index the same
+  objects by station-pair / single-station instead of exact name (replacing
+  `blsec_id()`'s old full-network linear scans — see
+  [efficiency-review.md](efficiency-review.md) recommendation #2); `segments_by_pair`
+  wraps `blsec_by_pair`'s grouping in named `Segment` objects (see
+  [domain-model.md](domain-model.md) and [segment-redesign.md](segment-redesign.md)).
 
 ## The event loop
 
@@ -98,8 +110,10 @@ Given a travel direction between two stations, this finds the concrete `block_se
 a train should use. It's non-trivial because a station pair can have multiple physical
 lines (`dn1`/`up1`/`mid1`/`mid2`):
 
-1. Filters `blocksections_list` to sections between the two stations, in the correct
-   direction (or bidirectional `mid*`).
+1. Determines the travel direction via `self.direction_of_travel(stn1, stn2)` (delegates
+   to the pair's `Segment` — see [segment-redesign.md](segment-redesign.md)), then
+   filters that pair's lines (`self.blsec_by_pair.get(base, [])`, not a full-network
+   scan) to sections in that direction or bidirectional `mid*`.
 2. For an **arrival** event, prefers the section the train is already recorded as
    occupying.
 3. Restricts candidates to those actually wired (via `stn_obj.connections`) to the station
@@ -186,8 +200,7 @@ from the engine's departure branch in docs/event-manager-design.md stage 3c).
 
 When the loop terminates, the script:
 
-1. Prints per-train planned-vs-simulated statistics (`train.calc_tr_stats()`).
-2. Builds a wide DataFrame (`Stn1/Arr1/Dept1, Stn2/Arr2/Dept2, ...` columns) from
+1. Builds a wide DataFrame (`Stn1/Arr1/Dept1, Stn2/Arr2/Dept2, ...` columns) from
    `total_schedule` and writes a 3-sheet Excel workbook (`excel_filename`):
    - **Sheet1** — full planned / simulated / actual timetables per train, plus computed
      deviation and "within max allowed deviation" rows (`max_allowed_deviation = 5 min`).
@@ -195,11 +208,11 @@ When the loop terminates, the script:
      goods, with and without outliers removed via IQR filtering).
    - **Sheet3** — per-train deviation value listings in a merged/labeled grid, split by
      planned-vs-simulated and planned-vs-actual (with/without outliers).
-3. Builds the time-distance chart via `master_time_distance_chart(...)`, which windows the
+2. Builds the time-distance chart via `master_time_distance_chart(...)`, which windows the
    simulated schedule to `chart_duration_hrs` (`data_extract.filter_df_by_date_window` /
    `get_formatted_data_from_df`) and renders it with `chart_logic3.plot_railway_chart`,
    saving `chart_filename` as a PDF.
-4. Writes `animator` — a JSON file (`total_schedule_to_json`) with each train's ordered
+3. Writes `animator` — a JSON file (`total_schedule_to_json`) with each train's ordered
    route (station, line, platform, arrival, departure, outgoing block section), for
    consumption by a separate train-animation front-end (not included in this repo).
 

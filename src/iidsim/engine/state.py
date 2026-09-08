@@ -74,18 +74,19 @@ class SimulationState:
             self.blsec_by_station.setdefault(b.stn_west.name, []).append(b)
             self.blsec_by_station.setdefault(b.stn_east.name, []).append(b)
         # {'stn_west_stn_east': Segment} -- one Segment per station pair, wrapping
-        # the same line objects already grouped in blsec_by_pair. Purely additive:
-        # nothing reads self.segments_by_pair yet (see docs discussion on the
-        # Segment redesign) -- this just gives that grouping a name and a
-        # direction-aware query method (Segment.lines_for_direction) instead of
+        # the same line objects already grouped in blsec_by_pair. Gives that grouping
+        # a name and identity (endpoints, length, up/down direction) instead of
         # leaving it as an anonymous index, without changing how any existing line
         # object behaves. Named segments_by_pair, not segments -- self.segments is
         # already taken below (network_section's chart station-pair distances).
-        # stn_up/stn_down come from routes.branch_order() (the per-branch
-        # "sequence from headquarters" lists) -- independent of the
-        # longitude-derived stn_west/stn_east above. None/None for a pair no
-        # branch list covers (harmless; direction_of_travel() just refuses to
-        # guess for that segment rather than raising here).
+        # self.direction_of_travel() (resolve.py) is what actually reads this, on
+        # behalf of every travel-direction decision in the engine -- see
+        # docs/segment-redesign.md. stn_up/stn_down come from routes.branch_order()
+        # (the per-branch "sequence from headquarters" lists) -- independent of the
+        # longitude-derived stn_west/stn_east above. None/None for a pair no branch
+        # list covers (doesn't happen for any of the 92 real segments today, but
+        # direction_of_travel() refuses to guess for that segment rather than
+        # raising here).
         _branch_order = routes.branch_order()
         self.segments_by_pair = {}
         for base, lines in self.blsec_by_pair.items():
