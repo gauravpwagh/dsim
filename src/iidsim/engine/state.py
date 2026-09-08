@@ -8,6 +8,7 @@ import pandas as pd
 # from scipy import stats as _halt_dev_stats
 # from openpyxl.styles import Alignment, Font
 import iidsim.network as _network
+from iidsim.network import routes
 from iidsim import schedules
 from iidsim.data import geography, halt_deviation, timing
 from iidsim.domain import Segment
@@ -80,9 +81,17 @@ class SimulationState:
         # leaving it as an anonymous index, without changing how any existing line
         # object behaves. Named segments_by_pair, not segments -- self.segments is
         # already taken below (network_section's chart station-pair distances).
-        self.segments_by_pair = {
-            base: Segment(base, lines) for base, lines in self.blsec_by_pair.items()
-        }
+        # stn_up/stn_down come from routes.branch_order() (the per-branch
+        # "sequence from headquarters" lists) -- independent of the
+        # longitude-derived stn_west/stn_east above. None/None for a pair no
+        # branch list covers (harmless; direction_of_travel() just refuses to
+        # guess for that segment rather than raising here).
+        _branch_order = routes.branch_order()
+        self.segments_by_pair = {}
+        for base, lines in self.blsec_by_pair.items():
+            up_down = _branch_order.get(frozenset((lines[0].stn_west.name, lines[0].stn_east.name)))
+            stn_up, stn_down = up_down if up_down is not None else (None, None)
+            self.segments_by_pair[base] = Segment(base, lines, stn_up=stn_up, stn_down=stn_down)
         if use_halt_deviation:
             self.halt_dev_fits_g = halt_deviation.fits_for('g')
             self.halt_dev_fits_p = halt_deviation.fits_for('p')

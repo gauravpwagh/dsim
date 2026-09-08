@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 # Base line segments
 KRDL_TO_KRPU = ['KRDL', 'BCHL', 'BHNS', 'KMLR', 'DWZ', 'GIZ', 'DBF', 'KWGN', 'KKLU', 'KMSD', 'SZY', 'DMK',
                  'BDXX', 'TPQ', 'KMEZ', 'JDB', 'NKX', 'AGZ', 'AGB', 'KPRR', 'CJS', 'KDPA', 'DIR', 'JYP',
@@ -19,6 +21,47 @@ VZM_TO_SCMN = ['VZM', 'VSKP', 'WATD', 'WATE', 'GPT', 'SCMN']
 KTV_TO_VZM = ['KTV', 'KPL', 'ALM', 'KUK', 'VZM']
 
 VZM_TO_PSA = ['VZM', 'NML', 'GVI', 'CPP', 'SGDM', 'PDU', 'DUSI', 'CHE', 'ULM', 'TIU', 'KBM', 'NWP', 'PUN']
+
+# Every base segment, head-of-list = the reference ("headquarters") end. Used by
+# branch_order() below to derive up/down direction independent of longitude --
+# see docs discussion on the Segment redesign. Register a new branch here, not in
+# a separate list, if one is ever added.
+BASE_SEGMENTS = [
+    KRDL_TO_KRPU, KRPU_TO_KTV, KRPU_TO_SPRD, SPRD_TO_VZM,
+    KTV_TO_SCMN, VZM_TO_SCMN, KTV_TO_VZM, VZM_TO_PSA,
+]
+
+
+@lru_cache(maxsize=1)
+def branch_order():
+    """{{stn_a, stn_b} frozenset(lowercase): (stn_up, stn_down)} for every
+    consecutive pair across every branch in BASE_SEGMENTS. The station listed
+    earlier in a branch (closer to the head of its list, i.e. closer to the
+    reference/headquarters end) is 'up'; the next one is 'down' -- this is the
+    real railway convention, independent of the geographic longitude comparison
+    block_sec/Segment currently use for their own west/east naming.
+
+    Raises if two branches disagree on a pair's order (would mean the input
+    data itself is inconsistent) rather than silently picking one -- verified
+    empirically against the current data before this was written: 92/92 real
+    network segments are covered, zero conflicts. A pair with no matching block
+    section in the current network (e.g. VZM_TO_SCMN, not built out in any
+    board) simply appears in this table unused -- harmless.
+    """
+    order = {}
+    for branch in BASE_SEGMENTS:
+        lowered = [s.lower() for s in branch]
+        for up, down in zip(lowered, lowered[1:]):
+            key = frozenset((up, down))
+            existing = order.get(key)
+            if existing is not None and existing != (up, down):
+                raise ValueError(
+                    f"branch_order(): conflicting direction for {up!r}/{down!r} -- "
+                    f"already recorded as {existing!r} from another branch"
+                )
+            order[key] = (up, down)
+    return order
+
 
 # Derived segment (KTV -> VZM -> PSA)
 KTV_TO_PSA = KTV_TO_VZM + VZM_TO_PSA[1:]

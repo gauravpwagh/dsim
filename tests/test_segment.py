@@ -87,3 +87,45 @@ def test_lines_for_direction_no_match_returns_empty():
     up1 = _make_blsec("up1", A, B)
     seg = Segment("a_b", [up1])
     assert seg.lines_for_direction("dn") == []
+
+
+def test_stn_up_down_default_to_none():
+    dn1 = _make_blsec("dn1", A, B)
+    seg = Segment("a_b", [dn1])
+    assert seg.stn_up is None
+    assert seg.stn_down is None
+    with pytest.raises(ValueError):
+        seg.direction_of_travel("A", "B")
+
+
+def test_stn_up_down_must_be_given_together():
+    dn1 = _make_blsec("dn1", A, B)
+    with pytest.raises(ValueError):
+        Segment("a_b", [dn1], stn_up="A")
+    with pytest.raises(ValueError):
+        Segment("a_b", [dn1], stn_down="B")
+
+
+def test_stn_up_down_must_match_segment_endpoints():
+    dn1 = _make_blsec("dn1", A, B)
+    with pytest.raises(ValueError):
+        Segment("a_b", [dn1], stn_up="A", stn_down="somewhere_else")
+
+
+def test_direction_of_travel_up_end_to_down_end_is_dn():
+    dn1 = _make_blsec("dn1", A, B)
+    seg = Segment("a_b", [dn1], stn_up="A", stn_down="B")
+    assert seg.direction_of_travel("A", "B") == "dn"
+
+
+def test_direction_of_travel_down_end_to_up_end_is_up():
+    dn1 = _make_blsec("dn1", A, B)
+    seg = Segment("a_b", [dn1], stn_up="A", stn_down="B")
+    assert seg.direction_of_travel("B", "A") == "up"
+
+
+def test_direction_of_travel_rejects_stations_not_on_this_segment():
+    dn1 = _make_blsec("dn1", A, B)
+    seg = Segment("a_b", [dn1], stn_up="A", stn_down="B")
+    with pytest.raises(ValueError):
+        seg.direction_of_travel("A", "somewhere_else")
