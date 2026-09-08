@@ -84,8 +84,7 @@ class PriorityMixin:
         previous_stn = self.sched_act[next_event_tr_id][t_ind - 5]
         curr_stn = self.stns_event[0].name
         prev_base = self.conn_base(previous_stn, curr_stn)
-        east_bound = self.station_longitudes[curr_stn] >= self.station_longitudes[previous_stn]
-        wanted = 'dn' if east_bound else 'up'
+        wanted = self.direction_of_travel(previous_stn, curr_stn)
         prev_blsec_obj = next((b for b in self.blsec_by_pair.get(prev_base, []) if isinstance(b.dir_mvmt, str) and b.dir_mvmt.startswith(wanted)), None)
         return prev_blsec_obj
 

@@ -15,13 +15,23 @@ import pandas as pd
 
 class ResolveMixin:
 
+    def direction_of_travel(self, stn_a, stn_b):
+        """'dn' or 'up' for travelling stn_a -> stn_b, sourced from this station
+        pair's Segment (branch order -- see docs discussion on the Segment
+        redesign) instead of raw longitude comparison. stn_a/stn_b must be
+        adjacent (share a block section); every other direction-of-travel
+        lookup in the engine goes through this method now. conn_base()'s own
+        internal west/east sort is a separate concern (a canonical *naming*
+        convention for block-section/segment keys, not a travel-direction
+        decision) and is deliberately left alone.
+        """
+        base = self.conn_base(stn_a, stn_b)
+        return self.segments_by_pair[base].direction_of_travel(stn_a, stn_b)
+
     def blsec_id(self, stn1, stn2):
         stn_start = self.stations_by_name[stn1]
         stn_end = self.stations_by_name[stn2]
-        if stn_start.longitude - stn_end.longitude > 0:
-            train_dir = 'up'
-        else:
-            train_dir = 'dn'
+        train_dir = self.direction_of_travel(stn1, stn2)
         # conn_base() always returns the same west_east string regardless of argument
         # order (it re-sorts by longitude internally), so conn_base(stn2, stn1) here
         # would just recompute the identical string -- no need for a second lookup.
@@ -230,8 +240,7 @@ class ResolveMixin:
         # conn_base() always returns the same west_east string regardless of argument
         # order, so a second lookup for conn_base(stn_b, stn_a) would be redundant.
         base = self.conn_base(stn_a, stn_b)
-        east_bound = self.station_longitudes[stn_b] >= self.station_longitudes[stn_a]
-        wanted = 'dn' if east_bound else 'up'
+        wanted = self.direction_of_travel(stn_a, stn_b)
         candidates = self.blsec_by_pair.get(base, [])
         for blsec in candidates:
             if blsec.dir_mvmt.startswith(wanted):
@@ -254,4 +263,4 @@ class ResolveMixin:
         if idx + 1 >= len(stns):
             return None
         nxt = stns[idx + 1]
-        return 1 if self.station_longitudes[nxt] > self.station_longitudes[current_stn] else 0
+        return 1 if self.direction_of_travel(current_stn, nxt) == 'dn' else 0

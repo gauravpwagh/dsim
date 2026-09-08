@@ -64,7 +64,7 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                                 q_tr_id.append(self.blsec_t.blsec_queue[v])
                             v += 6
                         redirected = []
-                        _queue_dir = 'up' if self.station_longitudes[self.stns_event[1].name] > self.station_longitudes[self.stns_event[0].name] else 'dn'
+                        _queue_dir = self.direction_of_travel(self.stns_event[1].name, self.stns_event[0].name)
                         for k in q_tr_id:
                             train_name_r = k[:k.index('_')]
                             stn_line_stn0_r = self.get_train_stnline_for_arrival_delay(self.stns_event, train_name_r)
@@ -163,7 +163,7 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                 occ_details = self.check_next_blse_stn_occupancy(t_ind, len_sched)
                 stn1 = self.stns_event[0].name
                 stn2 = self.stns_event[1].name
-                current_train_dir = 1 if self.station_longitudes[stn2] > self.station_longitudes[stn1] else 0
+                current_train_dir = 1 if self.direction_of_travel(stn1, stn2) == 'dn' else 0
                 dn_stn_count = occ_details[0]
                 up_stn_count = occ_details[1]
                 count_next_blsec = occ_details[3]
@@ -193,7 +193,7 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                             self.sched_updt(new_arrival_time, t_ind + 2, next_event_tr_id)
                             t_blsec_occ_end = new_arrival_time - t
                             self.t_max = self.term_crit_calc()
-                            _expected_dir = 'up' if self.station_longitudes[self.stns_event[0].name] > self.station_longitudes[self.stns_event[1].name] else 'dn'
+                            _expected_dir = self.direction_of_travel(self.stns_event[0].name, self.stns_event[1].name)
                             assert self.blsec_t.dir_mvmt[0:2] == _expected_dir or self.blsec_t.dir_mvmt[0:3] == 'mid', f'direction mismatch: train {next_event_tr_id} departing {self.stns_event[0].name}->{self.stns_event[1].name} (expected dir {_expected_dir!r}) about to occupy {self.blsec_t.name} (dir_mvmt={self.blsec_t.dir_mvmt!r})'
                             self.blsec_t.train_occ_start(t, t + t_blsec_occ_end, next_event_tr_id)
                             self.stns_event[0].set_occ_conn_out(next_event_conn, self.tr_next_event.train_id, 1)
@@ -206,7 +206,7 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                         self.sched_updt(new_arrival_time, t_ind + 2, next_event_tr_id)
                         t_blsec_occ_end = new_arrival_time - t
                         self.t_max = self.term_crit_calc()
-                        _expected_dir = 'up' if self.station_longitudes[self.stns_event[0].name] > self.station_longitudes[self.stns_event[1].name] else 'dn'
+                        _expected_dir = self.direction_of_travel(self.stns_event[0].name, self.stns_event[1].name)
                         assert self.blsec_t.dir_mvmt[0:2] == _expected_dir or self.blsec_t.dir_mvmt[0:3] == 'mid', f'direction mismatch: train {next_event_tr_id} departing {self.stns_event[0].name}->{self.stns_event[1].name} (expected dir {_expected_dir!r}) about to occupy {self.blsec_t.name} (dir_mvmt={self.blsec_t.dir_mvmt!r})'
                         self.blsec_t.train_occ_start(t, t + t_blsec_occ_end, next_event_tr_id)
                         self.stns_event[0].set_occ_conn_out(next_event_conn, self.tr_next_event.train_id, 1)
@@ -261,9 +261,9 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                             self.sched_updt(new_arrival_time, t_ind + 2, next_event_tr_id)
                             t_blsec_occ_end = new_arrival_time - t
                             self.t_max = self.term_crit_calc()
-                            _expected_dir = 'up' if self.station_longitudes[self.stns_event[0].name] > self.station_longitudes[self.stns_event[1].name] else 'dn'
+                            _expected_dir = self.direction_of_travel(self.stns_event[0].name, self.stns_event[1].name)
                             assert self.blsec_t.dir_mvmt[0:2] == _expected_dir or self.blsec_t.dir_mvmt[0:3] == 'mid', f'direction mismatch: train {next_event_tr_id} departing {self.stns_event[0].name}->{self.stns_event[1].name} (expected dir {_expected_dir!r}) about to occupy {self.blsec_t.name} (dir_mvmt={self.blsec_t.dir_mvmt!r})'
-                            _expected_dir = 'up' if self.station_longitudes[self.stns_event[0].name] > self.station_longitudes[self.stns_event[1].name] else 'dn'
+                            _expected_dir = self.direction_of_travel(self.stns_event[0].name, self.stns_event[1].name)
                             assert self.blsec_t.dir_mvmt[0:2] == _expected_dir or self.blsec_t.dir_mvmt[0:3] == 'mid', f'direction mismatch: train {next_event_tr_id} departing {self.stns_event[0].name}->{self.stns_event[1].name} (expected dir {_expected_dir!r}) about to occupy {self.blsec_t.name} (dir_mvmt={self.blsec_t.dir_mvmt!r})'
                             self.blsec_t.train_occ_start(t, t + t_blsec_occ_end, next_event_tr_id)
                             self.stns_event[0].set_occ_conn_out(next_event_conn, self.tr_next_event.train_id, 1)
@@ -301,7 +301,7 @@ class Simulation(SimulationState, ResolveMixin, PriorityMixin, RandomnessMixin, 
                         self.sched_updt(new_arrival_time, t_ind + 2, next_event_tr_id)
                         t_blsec_occ_end = new_arrival_time - t
                         self.t_max = self.term_crit_calc()
-                        _expected_dir = 'up' if self.station_longitudes[self.stns_event[0].name] > self.station_longitudes[self.stns_event[1].name] else 'dn'
+                        _expected_dir = self.direction_of_travel(self.stns_event[0].name, self.stns_event[1].name)
                         assert self.blsec_t.dir_mvmt[0:2] == _expected_dir or self.blsec_t.dir_mvmt[0:3] == 'mid', f'direction mismatch: train {next_event_tr_id} departing {self.stns_event[0].name}->{self.stns_event[1].name} (expected dir {_expected_dir!r}) about to occupy {self.blsec_t.name} (dir_mvmt={self.blsec_t.dir_mvmt!r})'
                         self.blsec_t.train_occ_start(t, t + t_blsec_occ_end, next_event_tr_id)
                         self.stns_event[0].set_occ_conn_out(next_event_conn, self.tr_next_event.train_id, 1)
