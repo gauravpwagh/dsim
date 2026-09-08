@@ -14,7 +14,22 @@ Verified (not assumed) before writing this: every line sharing a base name in th
 real merged network has identical stn_west/stn_east/length -- see the check run
 before this file was added. If that ever stopped holding for some future board
 data, Segment's __init__ raises rather than silently picking one line's values.
+
+`Segment.new()`/`add_line()` (see docs/segment-redesign.md) go further: instead of
+just *checking* that lines agree, they make disagreement structurally impossible.
+Raw board data (network/boards/*.py) declares a segment's shared facts -- the two
+stations, the length -- exactly once via `Segment.new(...)`, and every physical
+line for that pair is then built via `.add_line(dir_mvmt, conns)`, which always
+reuses that same segment's own stn_west/stn_east/length rather than taking them as
+separate, independently-typo-able arguments the way the old direct
+`block_sec(dir, stn_a, stn_b, length, conns, stations_list)` calls did (repeating
+stn_a/stn_b/length once per line sharing a pair). __init__'s validation above is
+still in place -- it's just no longer something to hope holds; for any segment
+built via new()/add_line() it is unconditionally true by construction.
 """
+
+from iidsim.network.routes import branch_order
+from .block_section import block_sec, sort_west_east
 
 
 class Segment:
@@ -56,6 +71,57 @@ class Segment:
         self.lines = list(lines)
         self.stn_up = stn_up
         self.stn_down = stn_down
+
+    @classmethod
+    def new(cls, stn_a, stn_b, length, stations_list):
+        """Declare a new segment for this station pair -- the raw-input entry
+        point board/network files use exactly once per station pair, instead
+        of repeating (stn_a, stn_b, length) on every individual physical
+        line's block_sec(...) call the way they used to. Returns an empty
+        Segment; call add_line() once per physical line this pair actually
+        has (dn1, up1, mid1, ...).
+
+        stn_a / stn_b: station *names* (str) -- order doesn't matter here any
+        more than it does for conn_base(). stations_list: searched for
+        stn_a/stn_b by name, same convention block_sec.__init__ itself uses.
+
+        West/east are determined via sort_west_east() -- the exact same
+        function (and tie-break) block_sec.__init__ uses, not a second,
+        independently-written comparison -- so add_line()'s resulting lines
+        can never disagree with this segment about which station is which,
+        even in the edge case of two adjacent stations sharing a longitude.
+        """
+        try:
+            stn_a_obj = next(s for s in stations_list if s.name == stn_a)
+            stn_b_obj = next(s for s in stations_list if s.name == stn_b)
+        except StopIteration:
+            raise ValueError(
+                f"Segment.new({stn_a!r}, {stn_b!r}): one or both stations not in the supplied stations_list"
+            )
+        stn_west, stn_east = sort_west_east(stn_a_obj, stn_b_obj)
+        name = f'{stn_west.name}_{stn_east.name}'
+        up_down = branch_order().get(frozenset((stn_west.name, stn_east.name)))
+        stn_up, stn_down = up_down if up_down is not None else (None, None)
+        seg = object.__new__(cls)
+        seg.name = name
+        seg.stn_west = stn_west
+        seg.stn_east = stn_east
+        seg.length = length
+        seg.lines = []
+        seg.stn_up = stn_up
+        seg.stn_down = stn_down
+        return seg
+
+    def add_line(self, dir_mvmt, conns):
+        """Construct and register one physical line (block_sec) for this
+        segment, reusing this segment's own already-fixed stn_west/stn_east/
+        length instead of taking them as separate arguments the way a direct
+        block_sec(...) call would -- see docs/segment-redesign.md. Returns
+        the new block_sec, same as calling block_sec(...) directly would.
+        """
+        line = block_sec(dir_mvmt, self.stn_west.name, self.stn_east.name, self.length, conns, [self.stn_west, self.stn_east])
+        self.lines.append(line)
+        return line
 
     def direction_of_travel(self, from_stn, to_stn):
         """'dn' if travelling from_stn -> to_stn follows this segment's

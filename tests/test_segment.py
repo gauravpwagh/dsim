@@ -130,3 +130,74 @@ def test_direction_of_travel_rejects_stations_not_on_this_segment():
     seg = Segment("a_b", [dn1], stn_up="A", stn_down="B")
     with pytest.raises(ValueError):
         seg.direction_of_travel("A", "somewhere_else")
+
+
+# -- Segment.new() / add_line() -- the raw-input construction path -----------
+
+def test_new_creates_empty_segment():
+    seg = Segment.new("A", "B", 9.0, [A, B])
+    assert seg.name == "A_B"
+    assert seg.stn_west.name == "A"
+    assert seg.stn_east.name == "B"
+    assert seg.length == 9.0
+    assert seg.lines == []
+
+
+def test_new_west_east_follows_longitude_regardless_of_argument_order():
+    seg_ab = Segment.new("A", "B", 9.0, [A, B])
+    seg_ba = Segment.new("B", "A", 9.0, [A, B])
+    assert seg_ab.stn_west.name == seg_ba.stn_west.name == "A"
+    assert seg_ab.stn_east.name == seg_ba.stn_east.name == "B"
+
+
+def test_new_raises_if_station_not_in_stations_list():
+    with pytest.raises(ValueError):
+        Segment.new("A", "nonexistent", 9.0, [A, B])
+
+
+def test_new_has_no_branch_coverage_for_an_unknown_pair():
+    seg = Segment.new("A", "B", 9.0, [A, B])
+    assert seg.stn_up is None
+    assert seg.stn_down is None
+    with pytest.raises(ValueError):
+        seg.direction_of_travel("A", "B")
+
+
+def test_new_finds_branch_order_for_a_real_station_pair_by_name():
+    # branch_order() is keyed purely by station name, independent of the
+    # (here, arbitrary/synthetic) longitude values -- smlg/kvls are real,
+    # adjacent stations in routes.KRPU_TO_KTV.
+    smlg = _Station("smlg", 100.0)
+    kvls = _Station("kvls", 200.0)
+    seg = Segment.new("smlg", "kvls", 9.0, [smlg, kvls])
+    assert seg.stn_up == "smlg"
+    assert seg.stn_down == "kvls"
+    assert seg.direction_of_travel("smlg", "kvls") == "dn"
+
+
+def test_add_line_reuses_segment_endpoints_and_length():
+    seg = Segment.new("A", "B", 9.0, [A, B])
+    line = seg.add_line("dn1", {"A": ["s1"], "B": ["s1"]})
+    assert line.name == "A_B_dn1"
+    assert line.stn_west.name == "A"
+    assert line.stn_east.name == "B"
+    assert line.length == 9.0
+
+
+def test_add_line_appends_to_segment_lines_and_returns_the_line():
+    seg = Segment.new("A", "B", 9.0, [A, B])
+    dn1 = seg.add_line("dn1", {"A": [], "B": []})
+    up1 = seg.add_line("up1", {"A": [], "B": []})
+    assert seg.lines == [dn1, up1]
+
+
+def test_add_line_built_lines_pass_the_original_validated_constructor():
+    # A Segment built the old way from add_line()'s own output should never
+    # raise -- proof the two construction paths agree, not just individually
+    # self-consistent.
+    seg = Segment.new("A", "B", 9.0, [A, B])
+    seg.add_line("dn1", {"A": [], "B": []})
+    seg.add_line("up1", {"A": [], "B": []})
+    rebuilt = Segment(seg.name, seg.lines, stn_up=seg.stn_up, stn_down=seg.stn_down)
+    assert rebuilt.stn_west.name == "A"
+    assert rebuilt.stn_east.name == "B"

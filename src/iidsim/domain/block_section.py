@@ -1,5 +1,23 @@
 import pandas as pd
 
+
+def sort_west_east(stn1_obj, stn2_obj):
+    """(stn_west, stn_east) for this pair of station objects, by longitude
+    (lower = west). Extracted from block_sec.__init__ so Segment.new()
+    (domain/segment.py) can determine west/east using the exact same rule --
+    including the same tie-break -- rather than a second, independently
+    hand-written comparison that could disagree with this one in an edge
+    case (e.g. two adjacent stations sharing an equal longitude). Pure
+    refactor: block_sec.__init__'s own behavior is unchanged by this.
+    """
+    # west = strictly lower longitude (defensive '>' instead of '>=':
+    # equal longitudes among adjacent stations would indicate a data issue,
+    # better to surface it than silently pick a side)
+    if stn2_obj.longitude > stn1_obj.longitude:
+        return stn1_obj, stn2_obj
+    return stn2_obj, stn1_obj
+
+
 # VR: convention here is that block section name is always station-to-the-west_station-to-east _ direction-mvmnt+instancenum
 # VR: for example, 'STNWEST_STNEAST_DN1' OR 'STNWEST_STNEAST_UP1' OR 'STNWEST_STNEAST_MID1'
 # VR: west / east is identified by the longitude attribute of the station
@@ -21,15 +39,8 @@ class block_sec():
                 f"not in the supplied stations_list"
             )
 
-        # west = strictly lower longitude (defensive '>' instead of '>=':
-        # equal longitudes among adjacent stations would indicate a data issue,
-        # better to surface it than silently pick a side)
-        if stn2_obj.longitude > stn1_obj.longitude:
-            self.name = stn1_obj.name + '_' + stn2_obj.name + '_' + self.dir_mvmt
-            self.stn_west, self.stn_east = stn1_obj, stn2_obj
-        else: 
-            self.name = stn2_obj.name + '_' + stn1_obj.name + '_' + self.dir_mvmt
-            self.stn_west, self.stn_east = stn2_obj, stn1_obj
+        self.stn_west, self.stn_east = sort_west_east(stn1_obj, stn2_obj)
+        self.name = self.stn_west.name + '_' + self.stn_east.name + '_' + self.dir_mvmt
 
         self.stn_conns = {self.stn_west.name: [], self.stn_east.name: []}
         for conn_suffix in conns[self.stn_west.name]:
