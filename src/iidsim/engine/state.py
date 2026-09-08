@@ -90,6 +90,41 @@ class SimulationState:
         # (blsec_id, etc.) has always done, so it stays sourced from
         # blocksections_list independently rather than from segments_by_pair.lines.
         self.segments_by_pair = _network.segments_by_pair
+        # {instance_id: [(Segment, direction), ...]} -- one entry per hop in this
+        # train's route (each consecutive pair of stations in its planned schedule),
+        # in travel order. The last item from docs/segment-redesign.md's "what's
+        # still open" list: resolves a train's whole route to (Segment, direction)
+        # once here, rather than blsec_id() re-deriving the same conn_base()/
+        # direction_of_travel() pair from scratch on every arrival/departure event
+        # for that hop. Not yet consumed by blsec_id() or anything else in the hot
+        # path -- purely additive, same as every earlier stage of this redesign's
+        # first step; wiring a consumer onto it is separate follow-up work.
+        #
+        # Also validates every train's entire route upfront: a hop with no
+        # matching Segment, or one whose branch order is unknown, now fails here,
+        # at Simulation() construction -- loudly, with the specific train and
+        # station pair named -- instead of silently succeeding at startup and only
+        # surfacing deep inside the event loop on whichever event happens to reach
+        # that hop first, potentially hours into a long run.
+        self.hop_segments = {}
+        for tr in self.trains:
+            instance_id = f'{tr.train_id}_{tr.instance_index}'
+            stns = list(tr.tr_schedule.keys())
+            hops = []
+            for stn_a, stn_b in zip(stns, stns[1:]):
+                base = self.conn_base(stn_a, stn_b)
+                segment = self.segments_by_pair.get(base)
+                if segment is None:
+                    raise ValueError(
+                        f'{instance_id}: no block section connects {stn_a!r} -> {stn_b!r} '
+                        f'(full route: {stns})'
+                    )
+                try:
+                    direction = segment.direction_of_travel(stn_a, stn_b)
+                except ValueError as exc:
+                    raise ValueError(f'{instance_id}, hop {stn_a!r} -> {stn_b!r}: {exc}') from exc
+                hops.append((segment, direction))
+            self.hop_segments[instance_id] = hops
         if use_halt_deviation:
             self.halt_dev_fits_g = halt_deviation.fits_for('g')
             self.halt_dev_fits_p = halt_deviation.fits_for('p')

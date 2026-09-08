@@ -28,8 +28,9 @@ still in place -- it's just no longer something to hope holds; for any segment
 built via new()/add_line() it is unconditionally true by construction.
 """
 
-from iidsim.network.routes import branch_order
 from .block_section import block_sec, sort_west_east
+# iidsim.network.routes.branch_order is imported lazily, inside new() below, not
+# here at module level -- see new()'s docstring for why.
 
 
 class Segment:
@@ -90,7 +91,25 @@ class Segment:
         independently-written comparison -- so add_line()'s resulting lines
         can never disagree with this segment about which station is which,
         even in the edge case of two adjacent stations sharing a longitude.
+
+        branch_order() is imported here, lazily, rather than at module level:
+        iidsim.network's own __init__.py imports Segment from iidsim.domain (to
+        call new()/add_line() while building the network), so a module-level
+        `from iidsim.network.routes import branch_order` here would make
+        iidsim.domain and iidsim.network import each other -- fine if
+        iidsim.network happens to be imported first (its own __init__.py
+        importing iidsim.domain then completes iidsim.domain's init in full
+        before returning), but a real ImportError if iidsim.domain is imported
+        first (iidsim.network's own from iidsim.domain import ... then hits
+        iidsim.domain mid-initialization, before Segment is defined). Deferring
+        the import to here avoids the module-level half of that cycle entirely:
+        by the time new() is actually called, it's always from within a board
+        file, which is always reached via iidsim.network's own __init__.py --
+        so iidsim.network is already present in sys.modules (if partially
+        initialized) by then, and this import just pulls in the leaf routes
+        submodule rather than re-triggering a fresh package init.
         """
+        from iidsim.network.routes import branch_order
         try:
             stn_a_obj = next(s for s in stations_list if s.name == stn_a)
             stn_b_obj = next(s for s in stations_list if s.name == stn_b)
