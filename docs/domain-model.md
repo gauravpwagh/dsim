@@ -142,6 +142,15 @@ Segment(name, lines, stn_up=None, stn_down=None)
 - `lines_for_direction(direction)` — this segment's lines compatible with `direction`
   (same-direction lines plus bidirectional `mid*` ones).
 
+`Segment.new(stn_a, stn_b, length, stations_list)` (classmethod) / `add_line(dir_mvmt,
+conns)` are the raw-input construction path board data actually uses (see below) —
+`new()` declares a segment's shared facts exactly once and returns it with no lines yet;
+`add_line()` builds and registers one physical line, always reusing that same segment's
+own `stn_west`/`stn_east`/`length` rather than taking them as separate arguments. This
+makes the endpoint/length agreement `Segment(name, lines, ...)` validates for
+structurally impossible to violate, for any segment built this way, rather than something
+to hope holds.
+
 **Owns no mutable simulation state.** Occupancy and queueing (`occ_ind`, `blsec_queue`,
 `autoblsec_list`, ...) stay entirely on the `block_sec` line objects — `dn1` and `up1`
 can be simultaneously occupied by two different trains, which is the entire reason
@@ -168,6 +177,16 @@ The network is authored as three independent "boards" (line segments), each with
 - `psa_scmn_stations_data.py` / `psa_scmn_blocksections_data.py` — 19 stations, PUN
   through VZM/KTV down to the port-area stations at SCMN.
 
+As of [segment-redesign.md](segment-redesign.md) stage 4, each board's block sections are
+declared via `Segment.new(stn_a, stn_b, length, stations_list)` (once per station pair)
+and `.add_line(dir_mvmt, conns)` (once per physical line) rather than independent
+`block_sec(...)` calls repeating the station pair and length on every line — e.g.
+`krdl_bchl_dn1`/`krdl_bchl_up1` in `krdl_vzm.py` now share one `Segment.new('krdl',
+'bchl', 9.14, stations_list)` instead of each separately stating `'krdl'`, `'bchl'`,
+`9.14`. Each board still exports the same `blocksections_list`/`stations_list`/
+`station_dict` module-level names as before — `network/__init__.py`'s own merge logic
+below is unaffected.
+
 `network/__init__.py` merges the three boards into one graph:
 
 1. Merges each board's `station_dict` and de-duplicates `stations_list` by station name
@@ -175,7 +194,8 @@ The network is authored as three independent "boards" (line segments), each with
 2. Concatenates all boards' `blocksections_list`s.
 3. Manually adds the **inter-board link sections** that couldn't be built inside a single
    board because the far-end station lived in a different board: `mvw↔ktv` and
-   `gtlm↔vzm` (each `dn1`/`up1`, built directly with `block_sec(...)`).
+   `gtlm↔vzm` (each `dn1`/`up1`, via `Segment.new(...)`/`.add_line(...)`, same as the
+   boards themselves).
 4. Calls `populate_connections(...)` once over the fully merged network so junction
    stations pick up cross-board connections too.
 

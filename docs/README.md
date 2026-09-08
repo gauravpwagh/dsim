@@ -29,7 +29,7 @@ This documentation is split into focused files:
 | [restructure-notes.md](restructure-notes.md) | Old-path -> new-path mapping, how the restructure was verified, and what was deliberately deferred |
 | [efficiency-review.md](efficiency-review.md) | Compute/time/memory findings — what was fixed and verified, and what's recommended but deferred |
 | [event-manager-design.md](event-manager-design.md) | Done: a heap-based `EventManager` (default) plus `Station`/`BlockSection` owning their own line-assignment, queue-priority, autoblock, and sibling-redirect decisions — all four stages implemented and verified |
-| [segment-redesign.md](segment-redesign.md) | Done: a `Segment` domain object grouping a station pair's parallel lines with real identity (endpoints, length, up/down direction from branch order), replacing longitude-based travel-direction determination throughout the engine |
+| [segment-redesign.md](segment-redesign.md) | Done: a `Segment` domain object grouping a station pair's parallel lines with real identity (endpoints, length, up/down direction from branch order), replacing longitude-based travel-direction determination throughout the engine, and rewriting the raw board data so each segment's endpoints/length are declared once instead of duplicated per line |
 
 ## Big picture
 
