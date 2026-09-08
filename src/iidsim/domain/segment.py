@@ -1,8 +1,8 @@
 """The station-pair segment between two adjacent stations (e.g. 'krdl_bchl') --
 groups the one or more parallel physical lines (block_sec objects, e.g. dn1/up1/
 mid1) that connect them, and holds the physical facts shared by all of them (the
-two station endpoints, the distance) that today are duplicated identically on
-every line object sharing that pair.
+two station endpoints in up/down terms, the distance) that today are duplicated
+identically on every line object sharing that pair.
 
 Segment is a pure grouping/addressing layer with NO mutable simulation state of
 its own -- occupancy, queueing, and autoblock bookkeeping stay exclusively on the
@@ -11,7 +11,7 @@ occupied by two different trains going opposite directions on separate physical
 tracks; that must never become a segment-level fact.
 
 Verified (not assumed) before writing this: every line sharing a base name in the
-real merged network has identical stn_west/stn_east/length -- see the check run
+real merged network has identical stn_up/stn_down/length -- see the check run
 before this file was added. If that ever stopped holding for some future board
 data, Segment's __init__ raises rather than silently picking one line's values.
 
@@ -20,58 +20,54 @@ just *checking* that lines agree, they make disagreement structurally impossible
 Raw board data (network/boards/*.py) declares a segment's shared facts -- the two
 stations, the length -- exactly once via `Segment.new(...)`, and every physical
 line for that pair is then built via `.add_line(dir_mvmt, conns)`, which always
-reuses that same segment's own stn_west/stn_east/length rather than taking them as
+reuses that same segment's own stn_up/stn_down/length rather than taking them as
 separate, independently-typo-able arguments the way the old direct
 `block_sec(dir, stn_a, stn_b, length, conns, stations_list)` calls did (repeating
 stn_a/stn_b/length once per line sharing a pair). __init__'s validation above is
 still in place -- it's just no longer something to hope holds; for any segment
 built via new()/add_line() it is unconditionally true by construction.
+
+Identity (stn_up/stn_down) and direction-of-travel used to be two independent
+orderings -- stn_west/stn_east (from station longitude, for naming) and
+stn_up/stn_down (from branch order, for direction_of_travel()) -- that happened
+to agree on all 92 real segments rather than being guaranteed to. Unified onto
+one ordering (sort_up_down() in block_section.py: branch order primarily,
+longitude fallback for a pair outside the registered network) as the final step
+of docs/segment-redesign.md: stn_up/stn_down is now what a segment/line is
+*called* as well as which way is "down". See sort_up_down()'s own docstring for
+why the fallback still exists and when (never, for real data) it's actually used.
 """
 
-from .block_section import block_sec, sort_west_east
-# iidsim.network.routes.branch_order is imported lazily, inside new() below, not
-# here at module level -- see new()'s docstring for why.
+from .block_section import block_sec, sort_up_down
 
 
 class Segment:
-    def __init__(self, name, lines, stn_up=None, stn_down=None):
+    def __init__(self, name, lines):
         """name: the base station-pair string (e.g. 'krdl_bchl'), matching what
         ResolveMixin.conn_base() computes for this pair.
         lines: the block_sec objects sharing that base, in their original
         blocksections_list order (dn1/up1/mid1/mid2, whichever exist).
-        stn_up / stn_down: this segment's endpoint station *names* (str) in
-        branch-order terms -- stn_up is the one closer to the reference
-        ("headquarters") end, per iidsim.network.routes.branch_order().
-        Deliberately independent of stn_west/stn_east below, which are
-        longitude-derived and carry no up/down meaning. None/None if this pair
-        isn't covered by any known branch order -- direction_of_travel() raises
-        rather than guessing in that case.
+        stn_up/stn_down (station objects) and length are taken directly from
+        the lines themselves (validated to agree across all of them) -- there
+        is exactly one ordering now, sourced by each line's own construction
+        (block_sec.stn_up/stn_down, via sort_up_down()), not a second,
+        independently-suppliable one a caller could make disagree with it.
         """
         if not lines:
             raise ValueError(f"Segment({name!r}): no lines given")
         lengths = {l.length for l in lines}
-        wests = {l.stn_west.name for l in lines}
-        easts = {l.stn_east.name for l in lines}
-        if len(lengths) > 1 or len(wests) > 1 or len(easts) > 1:
+        ups = {l.stn_up.name for l in lines}
+        downs = {l.stn_down.name for l in lines}
+        if len(lengths) > 1 or len(ups) > 1 or len(downs) > 1:
             raise ValueError(
                 f"Segment({name!r}): lines disagree on endpoints/length -- "
-                f"lengths={lengths} wests={wests} easts={easts}"
-            )
-        west_name, east_name = next(iter(wests)), next(iter(easts))
-        if (stn_up is None) != (stn_down is None):
-            raise ValueError(f"Segment({name!r}): stn_up and stn_down must be given together or not at all")
-        if stn_up is not None and {stn_up, stn_down} != {west_name, east_name}:
-            raise ValueError(
-                f"Segment({name!r}): stn_up/stn_down ({stn_up!r}/{stn_down!r}) "
-                f"aren't this segment's own two stations ({west_name!r}/{east_name!r})"
+                f"lengths={lengths} ups={ups} downs={downs}"
             )
         self.name = name
-        self.stn_west = lines[0].stn_west
-        self.stn_east = lines[0].stn_east
+        self.stn_up = lines[0].stn_up
+        self.stn_down = lines[0].stn_down
         self.length = lines[0].length
         self.lines = list(lines)
-        self.stn_up = stn_up
-        self.stn_down = stn_down
 
     @classmethod
     def new(cls, stn_a, stn_b, length, stations_list):
@@ -86,30 +82,12 @@ class Segment:
         more than it does for conn_base(). stations_list: searched for
         stn_a/stn_b by name, same convention block_sec.__init__ itself uses.
 
-        West/east are determined via sort_west_east() -- the exact same
-        function (and tie-break) block_sec.__init__ uses, not a second,
-        independently-written comparison -- so add_line()'s resulting lines
-        can never disagree with this segment about which station is which,
-        even in the edge case of two adjacent stations sharing a longitude.
-
-        branch_order() is imported here, lazily, rather than at module level:
-        iidsim.network's own __init__.py imports Segment from iidsim.domain (to
-        call new()/add_line() while building the network), so a module-level
-        `from iidsim.network.routes import branch_order` here would make
-        iidsim.domain and iidsim.network import each other -- fine if
-        iidsim.network happens to be imported first (its own __init__.py
-        importing iidsim.domain then completes iidsim.domain's init in full
-        before returning), but a real ImportError if iidsim.domain is imported
-        first (iidsim.network's own from iidsim.domain import ... then hits
-        iidsim.domain mid-initialization, before Segment is defined). Deferring
-        the import to here avoids the module-level half of that cycle entirely:
-        by the time new() is actually called, it's always from within a board
-        file, which is always reached via iidsim.network's own __init__.py --
-        so iidsim.network is already present in sys.modules (if partially
-        initialized) by then, and this import just pulls in the leaf routes
-        submodule rather than re-triggering a fresh package init.
+        stn_up/stn_down are determined via sort_up_down() -- the exact same
+        function block_sec.__init__ uses (via add_line() below), not a second,
+        independently-written determination -- so add_line()'s resulting
+        lines can never disagree with this segment about which station is
+        which.
         """
-        from iidsim.network.routes import branch_order
         try:
             stn_a_obj = next(s for s in stations_list if s.name == stn_a)
             stn_b_obj = next(s for s in stations_list if s.name == stn_b)
@@ -117,45 +95,39 @@ class Segment:
             raise ValueError(
                 f"Segment.new({stn_a!r}, {stn_b!r}): one or both stations not in the supplied stations_list"
             )
-        stn_west, stn_east = sort_west_east(stn_a_obj, stn_b_obj)
-        name = f'{stn_west.name}_{stn_east.name}'
-        up_down = branch_order().get(frozenset((stn_west.name, stn_east.name)))
-        stn_up, stn_down = up_down if up_down is not None else (None, None)
+        stn_up, stn_down = sort_up_down(stn_a_obj, stn_b_obj)
         seg = object.__new__(cls)
-        seg.name = name
-        seg.stn_west = stn_west
-        seg.stn_east = stn_east
-        seg.length = length
-        seg.lines = []
+        seg.name = f'{stn_up.name}_{stn_down.name}'
         seg.stn_up = stn_up
         seg.stn_down = stn_down
+        seg.length = length
+        seg.lines = []
         return seg
 
     def add_line(self, dir_mvmt, conns):
         """Construct and register one physical line (block_sec) for this
-        segment, reusing this segment's own already-fixed stn_west/stn_east/
+        segment, reusing this segment's own already-fixed stn_up/stn_down/
         length instead of taking them as separate arguments the way a direct
         block_sec(...) call would -- see docs/segment-redesign.md. Returns
         the new block_sec, same as calling block_sec(...) directly would.
         """
-        line = block_sec(dir_mvmt, self.stn_west.name, self.stn_east.name, self.length, conns, [self.stn_west, self.stn_east])
+        line = block_sec(dir_mvmt, self.stn_up.name, self.stn_down.name, self.length, conns, [self.stn_up, self.stn_down])
         self.lines.append(line)
         return line
 
     def direction_of_travel(self, from_stn, to_stn):
         """'dn' if travelling from_stn -> to_stn follows this segment's
-        branch-order (from_stn is the up-end), 'up' if reversed. Raises if this
-        segment's up/down endpoints are unknown, or if from_stn/to_stn aren't
-        this segment's own two stations -- never guesses.
+        up/down order (from_stn is the up-end), 'up' if reversed. Raises if
+        from_stn/to_stn aren't this segment's own two stations -- never
+        guesses. from_stn/to_stn are station *names* (str); stn_up/stn_down
+        are station objects, hence the .name comparisons below.
         """
-        if self.stn_up is None:
-            raise ValueError(f"Segment({self.name!r}): no known branch order for this pair")
-        if {from_stn, to_stn} != {self.stn_up, self.stn_down}:
+        if {from_stn, to_stn} != {self.stn_up.name, self.stn_down.name}:
             raise ValueError(
                 f"Segment({self.name!r}): {from_stn!r}/{to_stn!r} aren't this segment's endpoints "
-                f"({self.stn_up!r}/{self.stn_down!r})"
+                f"({self.stn_up.name!r}/{self.stn_down.name!r})"
             )
-        return 'dn' if from_stn == self.stn_up else 'up'
+        return 'dn' if from_stn == self.stn_up.name else 'up'
 
     def lines_for_direction(self, direction=None):
         """Lines usable by a train travelling `direction` ('up' or 'dn'):

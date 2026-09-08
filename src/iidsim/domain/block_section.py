@@ -1,32 +1,53 @@
 import pandas as pd
 
 
-def sort_west_east(stn1_obj, stn2_obj):
-    """(stn_west, stn_east) for this pair of station objects, by longitude
-    (lower = west). Extracted from block_sec.__init__ so Segment.new()
-    (domain/segment.py) can determine west/east using the exact same rule --
-    including the same tie-break -- rather than a second, independently
-    hand-written comparison that could disagree with this one in an edge
-    case (e.g. two adjacent stations sharing an equal longitude). Pure
-    refactor: block_sec.__init__'s own behavior is unchanged by this.
+def sort_up_down(stn1_obj, stn2_obj):
+    """(stn_up, stn_down) for this pair of station objects -- primarily from
+    iidsim.network.routes.branch_order() (the real railway up/down
+    convention: toward vs. away from a branch's reference end), falling
+    back to longitude (lower = "up", for naming purposes only -- see
+    docs/segment-redesign.md) if this pair has no known branch order.
+
+    The fallback exists so construction never hard-fails for a pair outside
+    the real registered network (synthetic test fixtures, a hypothetical
+    future board added before its branch is registered in routes.py) --
+    real network segments never actually reach it: verified all 92 real
+    segments have known branch order, and (separately, before this function
+    existed in this form) that branch order agrees with longitude on all of
+    them anyway, so which path this function takes has never changed a
+    single real block section's name.
+
+    Was sort_west_east() (pure longitude) before docs/segment-redesign.md's
+    final step unified block-section/segment *identity* onto the same
+    up/down convention direction-of-travel already used, instead of keeping
+    two independent orderings (one for naming, one for direction) that
+    happened to always agree rather than being guaranteed to.
     """
-    # west = strictly lower longitude (defensive '>' instead of '>=':
-    # equal longitudes among adjacent stations would indicate a data issue,
-    # better to surface it than silently pick a side)
+    from iidsim.network.routes import branch_order  # lazy: see Segment.new()'s
+    # docstring (domain/segment.py) for why iidsim.domain and iidsim.network
+    # can't both import each other at module level.
+    order = branch_order().get(frozenset((stn1_obj.name, stn2_obj.name)))
+    if order is not None:
+        up_name, _ = order
+        return (stn1_obj, stn2_obj) if stn1_obj.name == up_name else (stn2_obj, stn1_obj)
+    # longitude fallback (defensive '>' instead of '>=': equal longitudes among
+    # adjacent stations would indicate a data issue, better to surface it than
+    # silently pick a side)
     if stn2_obj.longitude > stn1_obj.longitude:
         return stn1_obj, stn2_obj
     return stn2_obj, stn1_obj
 
 
-# VR: convention here is that block section name is always station-to-the-west_station-to-east _ direction-mvmnt+instancenum
-# VR: for example, 'STNWEST_STNEAST_DN1' OR 'STNWEST_STNEAST_UP1' OR 'STNWEST_STNEAST_MID1'
-# VR: west / east is identified by the longitude attribute of the station
+# VR: convention here is that block section name is always station-to-the-up-end_station-to-the-down-end _ direction-mvmnt+instancenum
+# VR: for example, 'STNUP_STNDOWN_DN1' OR 'STNUP_STNDOWN_UP1' OR 'STNUP_STNDOWN_MID1'
+# VR: up / down is the real railway convention (toward/away from a branch's reference
+# VR: end, from iidsim.network.routes.branch_order()) -- see sort_up_down() above.
 # NOTE: stations_list is now passed in by the caller (no module-level import).
 # Each *_data.py file owns its own station list and supplies it on construction,
 # so production and test setups can coexist in the same Python session.
 class block_sec():
     def __init__(self, dir, stn_start, stn_end, length, conns, stations_list):
-        self.dir_mvmt = dir   # 'dn' = W->E, 'up' = E->W, 'mid' = bidirectional
+        self.dir_mvmt = dir   # 'dn' = towards the down end, 'up' = towards the up end, 'mid' = bidirectional
         self.occ_ind = 0      # 0 if free, 1 if occupied
 
         stn1_obj = stn2_obj = None
@@ -39,14 +60,14 @@ class block_sec():
                 f"not in the supplied stations_list"
             )
 
-        self.stn_west, self.stn_east = sort_west_east(stn1_obj, stn2_obj)
-        self.name = self.stn_west.name + '_' + self.stn_east.name + '_' + self.dir_mvmt
+        self.stn_up, self.stn_down = sort_up_down(stn1_obj, stn2_obj)
+        self.name = self.stn_up.name + '_' + self.stn_down.name + '_' + self.dir_mvmt
 
-        self.stn_conns = {self.stn_west.name: [], self.stn_east.name: []}
-        for conn_suffix in conns[self.stn_west.name]:
-            self.stn_conns[self.stn_west.name].append(self.name + '_' + conn_suffix)
-        for conn_suffix in conns[self.stn_east.name]:
-            self.stn_conns[self.stn_east.name].append(self.name + '_' + conn_suffix)
+        self.stn_conns = {self.stn_up.name: [], self.stn_down.name: []}
+        for conn_suffix in conns[self.stn_up.name]:
+            self.stn_conns[self.stn_up.name].append(self.name + '_' + conn_suffix)
+        for conn_suffix in conns[self.stn_down.name]:
+            self.stn_conns[self.stn_down.name].append(self.name + '_' + conn_suffix)
 
         self.length = length
         self.occ_cum = 0.0  # cumulative occupancy in seconds (float avoids pd.Timedelta overflow)

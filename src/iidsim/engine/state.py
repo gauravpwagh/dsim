@@ -51,7 +51,7 @@ class SimulationState:
         self.stations_by_name = {s.name: s for s in self.stations_list}
         self.station_longitudes = geography.station_longitudes()
         self.blsec_lookup = {b.name: b for b in self.blocksections_list}
-        # {'stn_west_stn_east': [block_sec, ...]} -- every block section whose name is
+        # {'stn_up_stn_down': [block_sec, ...]} -- every block section whose name is
         # that base plus a '_dirsuffix' (dn1/up1/mid1/mid2), grouped so blsec_id() (and
         # any other station-pair candidate lookup) doesn't need to linear-scan the whole
         # network for every call. Station codes never contain '_', so stripping a name's
@@ -69,9 +69,9 @@ class SimulationState:
         # guarantee as blsec_by_pair.
         self.blsec_by_station = {}
         for b in self.blocksections_list:
-            self.blsec_by_station.setdefault(b.stn_west.name, []).append(b)
-            self.blsec_by_station.setdefault(b.stn_east.name, []).append(b)
-        # {'stn_west_stn_east': Segment} -- one Segment per station pair. As of
+            self.blsec_by_station.setdefault(b.stn_up.name, []).append(b)
+            self.blsec_by_station.setdefault(b.stn_down.name, []).append(b)
+        # {'stn_up_stn_down': Segment} -- one Segment per station pair. As of
         # docs/segment-redesign.md stage 4/5, these are the *same* Segment objects
         # network/__init__.py already built once, at import time, from the boards'
         # own Segment.new()/add_line() calls -- taken directly here rather than

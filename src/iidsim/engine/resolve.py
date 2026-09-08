@@ -12,6 +12,7 @@ import pandas as pd
 # from iidsim.data import geography, halt_deviation, timing
 # from iidsim.reporting.chart import plot_railway_chart
 # from iidsim.reporting.extract import filter_df_by_date_window, get_formatted_data_from_df
+from iidsim.domain.block_section import sort_up_down
 
 class ResolveMixin:
 
@@ -133,7 +134,7 @@ class ResolveMixin:
                     blsec_occ_train_name = blsec.occ_train.split('_')[0] if blsec.occ_train else None
                     _t = self.trains_by_id.get(blsec_occ_train_name)
                     if _t is not None:
-                        blsec_tr_dir = self.train_direction(_t, blsec.stn_west.name)
+                        blsec_tr_dir = self.train_direction(_t, blsec.stn_up.name)
                     next_blsec_list.append([blsec, blsec_tr_dir])
                     next_blsec_list_names.append([blsec.name, blsec_tr_dir])
             else:
@@ -141,7 +142,14 @@ class ResolveMixin:
         return [dn_dir_stn_count, up_dir_stn_count, next_stn_line_min_endtimes, count_next_blsec, count_curr_blsec, next_blsec_list]
 
     def conn_base(self, stn_a, stn_b, dir_mvmt=None):
-        w, e = (stn_a, stn_b) if self.station_longitudes[stn_a] <= self.station_longitudes[stn_b] else (stn_b, stn_a)
+        # Must use the same ordering block_sec/Segment naming does (sort_up_down(),
+        # branch order primarily, longitude fallback) -- otherwise the key this
+        # computes could silently stop matching the name those objects actually
+        # have, breaking every segments_by_pair/blsec_by_pair lookup that relies
+        # on this string being the same as conn_base()'s own base. See
+        # docs/segment-redesign.md.
+        up, down = sort_up_down(self.stations_by_name[stn_a], self.stations_by_name[stn_b])
+        w, e = up.name, down.name
         return f'{w}_{e}_{dir_mvmt}' if dir_mvmt else f'{w}_{e}'
 
     def conn_exists(self, stn, stn_a, stn_b, dir_mvmt, line):
@@ -166,10 +174,10 @@ class ResolveMixin:
         for b in self.blsec_by_station.get(stn2, []):
             if b.name.startswith(curr_blsec_base + '_'):
                 continue
-            if b.stn_west.name == stn2:
-                return b.stn_east.name
-            if b.stn_east.name == stn2:
-                return b.stn_west.name
+            if b.stn_up.name == stn2:
+                return b.stn_down.name
+            if b.stn_down.name == stn2:
+                return b.stn_up.name
         return ''
 
     def get_min_endtime(self, stn_event, t_ind, is_origin_stn):
